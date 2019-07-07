@@ -2,6 +2,7 @@
   (:require
     [copom.router :as router]
     copom.events.requests
+    [copom.events.utils :refer [base-interceptors]]
     [re-frame.core :as rf]
     [reframe-forms.events]
     [reitit.core :as reitit]
@@ -10,12 +11,29 @@
 
 ;;dispatchers
 
-(def default-db {})                            
+(def default-db {})
+
+(defn navigate! [uri]
+  (set! js/location uri))                         
 
 (rf/reg-event-db
   :set-default-db
   (fn [db _]
     (merge db default-db)))
+
+(rf/reg-event-fx
+  :navigate/by-path
+  (fn [_ [_ uri]]
+    (navigate! uri)
+    nil))
+
+(rf/reg-event-fx
+  :navigate/by-name
+  (fn [_ [_ name]]
+    (if-let [match (reitit/match-by-name router/router name)]
+      (navigate! (str "/#" (:path match)))
+      (println "No match! for" name))
+    nil))
 
 (defn apply-controllers! [old-match new-match]
   (rfc/apply-controllers
@@ -29,16 +47,20 @@
 
 (rf/reg-event-db
   :navigate-by-path
-  (fn [db [_ uri]]
+  base-interceptors
+  (fn [db [uri]]
     (let [new-match (reitit/match-by-path router/router uri)]
+      ;(navigate! uri)
       (apply-controllers! (:route db) new-match)
       (assoc db :route new-match))))
 
 (rf/reg-event-db
   :navigate-by-name
-  (fn [db [_ name]]
+  base-interceptors
+  (fn [db [name]]
     (let [new-match (reitit/match-by-name router/router name)]
-      (apply-controllers! (:route db) new-match)
+      ;(navigate! (str "/#" (:path new-match)))
+      (prn (apply-controllers! (:route db) new-match))
       (assoc db :route new-match))))
 
 (rf/reg-event-db

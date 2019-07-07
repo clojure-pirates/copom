@@ -3,6 +3,7 @@
   (:require
     [copom.config :refer [env]]
     [clojure.spec.alpha :as s]
+    [clojure.tools.namespace.repl :refer [refresh]]
     [expound.alpha :as expound]
     [mount.core :as mount]
     [copom.figwheel :refer [start-fw stop-fw cljs]]
@@ -63,4 +64,6 @@
 
 (comment
   (start)
+  (create-migration "add-entity-request-role-table")
+  (reset-db)
   (migrate))

@@ -3,6 +3,7 @@
     [clojure.string :as string]
     [copom.views.components :as comps :refer 
      [card card-nav checkbox-input form-group radio-input]]
+    [copom.router :as router]
     [reagent.core :as r]
     [re-frame.core :as rf]
     [reframe-forms.core :as rff :refer [input select textarea]]))
@@ -22,12 +23,12 @@
 (defn list-requests [requests]
   [:ul.list-group.list-group-flush
     (for [r @requests]
-      ^{:key (:request-id r)}
-      [:a {:href (str "/requisicao/" (:request-id r))}
+      ^{:key (:request/id r)}
+      [:a {:href (str "#/requisicao/" (:request/id r))}
         [:li.list-group-item
-          (:priority r) " | "
-          (:crime r) " | "
-          (:created-at r)]])])
+          (:request/priority r) " | "
+          (:request/complaint r) " | "
+          (:request/created-at r)]])])
 
 ;; -------------------------
 ;; Create Request Page
@@ -40,17 +41,19 @@
     [:div
      
      [form-group
-      "Logradouro"
+      [:span "Logradouro"
+       [:span.text-danger " *obrigatório"]]
       [:div.form-row
        [:div.col
         ;; TODO: typehead
         [input {:type :text
                 :class "form-control"
-                :name (conj path :neighborhood)
+                :name (conj path :neighborhood/name)
                 :placeholder "Bairro"}]]
        [:div.col-2
-        [select {:name (conj path :route-type)
-                 :class "form-control"}
+        [select {:name (conj path :route/type)
+                 :class "form-control"
+                 :default-value "Rua"}
          (for [r @route-types]
            ^{:key r}
            [:option {:value r} r])]]
@@ -58,12 +61,12 @@
         ;; TODO: typehead
         [input {:type :text
                 :class "form-control"
-                :name (conj path :route-name)
+                :name (conj path :route/name)
                 :placeholder "Nome do logradouro"}]]
        [:div.col
         [input {:type :text
                 :class "form-control"
-                :name (conj path :number)
+                :name (conj path :superscription/num)
                 :placeholder "Número"}]]]]
      [:div.form-row
       [:div.col
@@ -71,14 +74,14 @@
         "Complemento"
         [input {:type :text
                 :class "form-control"
-                :name (conj path :complement)
+                :name (conj path :superscription/complement)
                 :placeholder "Apartamento, Quadra, Lote, etc."}]]]
       [:div.col
        [form-group
         "Ponto de referência"
         [input {:type :text
                 :class "form-control"
-                :name (conj path :reference)}]]]]
+                :name (conj path :superscription/reference)}]]]]
      ;; TODO: typehead
      [:div.form-row
       [:div.col
@@ -86,16 +89,16 @@
         "Município"
         [input {:type :text
                 :class "form-control"
-                :name (conj path :city)
-                :value "Guarantã do Norte"}]]]
+                :name (conj path :superscription/city)
+                :default-value "Guarantã do Norte"}]]]
       [:div.col
        ;; TODO: typehead
        [form-group
         "Estado"
         [input {:type :text
                 :class "form-control"
-                :name (conj path :state)
-                :value "Mato Grosso"}]]]]]))
+                :name (conj path :superscription/state)
+                :default-value "Mato Grosso"}]]]]]))
 
 (defn entity-form [path role]
   (r/with-let [docs-type ["CNH", "CNPJ" "CPF" "RG" "Passaporte"]
@@ -103,32 +106,35 @@
     [:div
      [input {:type :hidden
              :class "form-control"
-             :name (conj path :role)
-             :value role}]
+             :name (conj path :entity/role)
+             :default-value (name role)}]
      [:div.form-row
       [:div.col
        [form-group
-        "Nome"
+        [:span "Nome"
+         [:span.text-danger " *obrigatório"]]
         [input {:type :text
                 :class "form-control"
-                :name (conj path :name)}]]]
+                :name (conj path :entity/name)}]]]
       [:div.col
        [form-group
-        "Telefone"
-         [input {:type :number
-                 :class "form-control"
-                 :name (conj path :phone)}]]]]
+        [:span "Telefone"
+         [:span.text-danger " *obrigatório"]]
+        [input {:type :number
+                :class "form-control"
+                :name (conj path :entity/phone)}]]]]
      [:fieldset
       [:legend "Endereço"]
-      [address-form (conj path :address)]]
+      [address-form (conj path :entity/superscription)]]
      [:fieldset
        [:legend "Documento de identidade"]
        [:div.form-row
         [:div.col
          [form-group
           "Tipo de documento"
-          [select {:name (conj path :doc-type)
-                   :class "form-control"}
+          [select {:name (conj path :entity/doc-type)
+                   :class "form-control"
+                   :default-value "CPF"}
            (for [doc docs-type]
              ^{:key doc}
              [:option {:value doc} doc])]]]
@@ -137,13 +143,13 @@
           "Órgão emissor"
           [input {:type :text
                   :class "form-control"
-                  :name (conj path :doc-issuer)}]]]
+                  :name (conj path :entity/doc-issuer)}]]]
         [:div.col
          [form-group
           "Número do documento"
           [input {:type :text
                   :class "form-control"
-                  :name (conj path :doc-number)}]]]]]
+                  :name (conj path :entity/doc-number)}]]]]]
      ;; TODO: on-click expand
      [:fieldset
       [:legend "Filiação"]
@@ -153,124 +159,118 @@
          "Pai"
          [input {:type :text
                  :class "form-control"
-                 :name (conj path :father)}]]]
+                 :name (conj path :entity/father)}]]]
        [:div.col
         [form-group
          "Mãe"
          [input {:type :text
                  :class "form-control"
-                 :name (conj path :mother)}]]]]]]))
-
-(def priority-weights
-  {"apoio a policial" 4
-   "ofensa à vida" 5
-   "ofensa à integridade física" 2
-   "ofensa à honra" 1
-   "arma de fogo" 4
-   "tráfico de drogas" 3
-   "uso, porte de drogas" 2})
-
-(defn priority-total [priorities]
-  (-> priorities
-      (filter (fn [[desc bool] bool]))))
-
+                 :name (conj path :entity/mother)}]]]]]]))
 
 (defn request-form []
   (r/with-let [path [:requests :new]
                fields (rf/subscribe [:rff/query path])
+               delicts (rf/subscribe [:delicts/all])
                priority-score (rf/subscribe [:requests/priority-score])]
     [card-nav
      [{:nav-title "Fato"
        :body ;; NOTE: use a select typehead? But where would I find all
              ;; the items?
              [:div
+               ;[comps/pretty-display @fields]
                [form-group
-                "Natureza"
-                 [input {:type :text
-                         :class "form-control"
-                         :name (conj path :???)}]]
+                [:span "Natureza"
+                 [:span.text-danger " *obrigatório"]]
+                [input {:type :text
+                        :class "form-control"
+                        :name (conj path :request/complaint)}]]
                [form-group
-                "Resumo da requisição"
-                [textarea {:name (conj path :summary)
+                [:span "Resumo da requisição"
+                 [:span.text-danger " *obrigatório"]]
+                [textarea {:name (conj path :request/summary)
                            :class "form-control"}]]
                [:div.form-group
                  [:label "Prioridade"
                   ": " @priority-score]
-                 (for [[desc weight] priority-weights]
-                   ^{:key desc}
-                   [checkbox-input {:name (conj path :priority desc)
-                                    :label (string/capitalize desc)}])]
+                 (for [{:delict/keys [id name weight]} @delicts]
+                   ^{:key id}
+                   [checkbox-input {:name (conj path :request/delicts id)
+                                    :label (string/capitalize name)}])]
                [form-group
                 "Data"
                 [input {:type :date
                         :class "form-control"
-                        :name (conj path :date)
-                        :value (to-iso-date (js/Date.))}]]
+                        :name (conj path :request/date)
+                        :default-value (to-iso-date (js/Date.))}]]
                [form-group
                 "Hora"
                 [input {:type :time
                         :class "form-control"
-                        :name (conj path :time)
+                        :name (conj path :request/time)
                         :default-value (to-time-string (js/Date.))}]]]}
       {:nav-title "Endereço do fato"
-       :body [address-form (conj path :address)]}
+       :body [address-form (conj path :request/superscription)]}
       ;; typehead
       {:nav-title "Solicitante(s)"
        ; TODO: (button to add another)]}]]
-       :body [entity-form (conj path :requester) :requester]}
+       :body [entity-form (conj path :request/requester) :requester]}
       ;; typehead
       {:nav-title "Suspeito(s)"
        ; TODO: (button to add another)]
-       :body [entity-form (conj path :suspect) :suspect]}
+       :body [entity-form (conj path :request/suspect) :suspect]}
       ;; typehead
       {:nav-title "Testemunha(s)"
        ; TODO: (button to add another)]
-       :body [entity-form (conj path :witness) :witness]}
+       :body [entity-form (conj path :request/witness) :witness]}
       ;; typehead
       ;; mirror solicitante
       {:nav-title "Vítima(s)"
        ; TODO: (button to add another)]
-       :body [entity-form (conj path :victim) :victim]}
+       :body [entity-form (conj path :request/victim) :victim]}
       {:nav-title "Providências"
        :body [:div
               [form-group
                 "Providências"
-                [textarea {:name (conj path :measures)
+                [textarea {:name (conj path :request/measures)
                            :class "form-control"}]
                [form-group
-                 "Status"
-                 [radio-input {:name (conj path :status)
+                 [:span "Status"
+                  [:span.text-danger " *obrigatório"]]
+                 [radio-input {:name (conj path :request/status)
                                :class "form-check-input"
-                               :value :pending
+                               :value "pending"
                                :label "Em aberto"
-                               :checked? (when (-> @fields :status nil?) true)}]
-                 [radio-input {:name (conj path :status)
+                               :checked? (when (-> @fields :request/status nil?) true)}]
+                 [radio-input {:name (conj path :request/status)
                                :class "form-check-input"
-                               :value :dispatched
+                               :value "dispatched"
                                :label "Despachado"}]
-                 [radio-input {:name (conj path :status)
+                 [radio-input {:name (conj path :request/status)
                                :class "form-check-input"
-                               :value :done
+                               :value "done"
                                :label "Finalizado"}]]]]}]]))      
 
 (defn create-request-page []
-  (r/with-let [fields (rf/subscribe [:rff/query [:requests :new]])]
+  (r/with-let [fields (rf/subscribe [:rff/query [:requests :new]])
+               errors (rf/subscribe [:rff/query [:requests :new :request/errors]])]
     [:section.section>div.container>div.content
      [card
       {:title [:h4 "Nova requisição"
+               (when @errors [:span.alert.alert-danger @errors])
                [:div.btn-group.float-right
                  [:button.btn.btn-success
                   {:on-click #(rf/dispatch [:requests/create @fields])}
                   "Criar"]
-                 [:button.btn.btn-danger
-                  {:on-click #(do (rf/dispatch [:navigate-by-name :requests])
-                                  (rf/dispatch [:requests/clear-form]))}
+                 [:a.btn.btn-danger
+                  {:href (router/href :requests)
+                   :on-click #(rf/dispatch [:requests/clear-form])} 
+                                  
                   "Cancelar"]]]
        :body [request-form]}]]))
 
 (defn create-request-button []
   [:a.btn.btn-success
-   {:href "#/requisicoes/criar"}
+   {:href "/#/requisicoes/criar"}
    "Nova requisição"])
 
 ; TODO: pagination (show only n requests per page)

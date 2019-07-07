@@ -4,7 +4,9 @@
     [conman.core :as conman]
     [java-time.pre-java8 :as jt]
     [mount.core :refer [defstate]]
-    [copom.config :refer [env]]))
+    [copom.db.walkable :as w]
+    [copom.config :refer [env]]
+    [walkable.sql-query-builder :as sqb]))
 
 (defstate ^:dynamic *db*
           :start (conman/connect! {:jdbc-url (env :database-url)})
@@ -41,3 +43,48 @@
   (sql-value [v]
     (jt/sql-timestamp v)))
 
+; ------------------------------------------------------------------------------
+; Walkable
+; ------------------------------------------------------------------------------
+
+
+(defn raw-parser 
+  [query]
+  (w/pathom-parser
+    {::sqb/sql-db     *db*
+     ::sqb/run-query  jdbc/query
+     ::sqb/floor-plan w/compiled-schema}
+    query))
+
+; NOTE: works only for 1 query
+(defn parser [query]
+  (let [result
+        (-> (w/pathom-parser
+              {::sqb/sql-db     *db*
+               ::sqb/run-query  jdbc/query
+               ::sqb/floor-plan w/compiled-schema}
+              query))]
+    (if (= result :com.wsscode.pathom.core/not-found)
+      result
+      (let [[ident v] (first result)]
+        v))))
+
+(defn parser-print [query]
+  (let [result
+        (-> (w/pathom-parser
+              {::sqb/sql-db     *db*
+               ::sqb/run-query  (fn [db & more] 
+                                  (apply clojure.pprint/pprint more) (flush) 
+                                  (apply jdbc/query db more))
+               ::sqb/floor-plan w/compiled-schema}
+              query))]
+    (if (= result :com.wsscode.pathom.core/not-found)
+      result
+      (let [[ident v] (first result)]
+        v))))
+
+(comment
+  (parser [{[:user/by-id 1] [:user/id :user/first-name]}])
+  (->
+    (parser-print [{:users/all [:users/user-id]}])
+    clojure.pprint/pprint))

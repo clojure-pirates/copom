@@ -1,7 +1,5 @@
-CREATE TABLE superscriptions (
- id INTEGER AUTO_INCREMENT PRIMARY KEY,
- neighborhood_id INTEGER REFERENCES neighborhood (id),
- route_id INTEGER REFERENCES route (id),
+CREATE TABLE superscription (
+ id INTEGER PRIMARY KEY,
  num VARCHAR (30),
  complement VARCHAR (200),
  reference VARCHAR (200),

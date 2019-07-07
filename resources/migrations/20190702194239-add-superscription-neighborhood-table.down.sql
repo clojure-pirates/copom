@@ -1,0 +1,1 @@
+DROP TABLE superscription_neighborhood;

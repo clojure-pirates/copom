@@ -3,6 +3,7 @@
     [copom.middleware :as middleware]
     [copom.layout :refer [error-page]]
     [copom.routes.home :refer [home-routes]]
+    reitit.coercion.spec
     [reitit.ring :as ring]
     [ring.middleware.content-type :refer [wrap-content-type]]
     [ring.middleware.webjars :refer [wrap-webjars]]
@@ -18,7 +19,8 @@
   (middleware/wrap-base
     (ring/ring-handler
       (ring/router
-        [(home-routes)])
+        [(home-routes)]
+        {:data {:coercion reitit.coercion.spec/coercion}})
       (ring/routes
         (ring/create-resource-handler
           {:path "/"})
@@ -31,3 +33,8 @@
            (constantly (error-page {:status 405, :title "405 - Not allowed"}))
            :not-acceptable
            (constantly (error-page {:status 406, :title "406 - Not acceptable"}))})))))
+
+(comment
+  (#'app
+    {:request-method :post
+     :uri "/api/requests"}))

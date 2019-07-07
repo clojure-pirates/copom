@@ -1,6 +1,5 @@
-CREATE TABLE requests
-(id INTEGER AUTO_INCREMENT PRIMARY KEY,
- address_id INTEGER REFERENCES superscriptions (id),
+CREATE TABLE request
+(id INTEGER PRIMARY KEY,
  complaint VARCHAR (200),
  summary TEXT,
  event_timestamp TIMESTAMP,
