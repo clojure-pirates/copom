@@ -42,26 +42,24 @@
 (rf/reg-event-db
   :navigate*
   (fn [db [_ route]]
-    (apply-controllers! (:route db) route)
-    (assoc db :route route)))
+    (let [controllers (apply-controllers! (:route db) route)]
+      (assoc db :route (assoc route :controllers controllers)))))
 
 (rf/reg-event-db
   :navigate-by-path
   base-interceptors
   (fn [db [uri]]
-    (let [new-match (reitit/match-by-path router/router uri)]
-      ;(navigate! uri)
-      (apply-controllers! (:route db) new-match)
-      (assoc db :route new-match))))
+    (let [new-match (reitit/match-by-path router/router uri)
+          controllers (apply-controllers! (:route db) new-match)]
+      (assoc db :route (assoc new-match :controllers controllers)))))
 
 (rf/reg-event-db
   :navigate-by-name
   base-interceptors
   (fn [db [name]]
-    (let [new-match (reitit/match-by-name router/router name)]
-      ;(navigate! (str "/#" (:path new-match)))
-      (prn (apply-controllers! (:route db) new-match))
-      (assoc db :route new-match))))
+    (let [new-match (reitit/match-by-name router/router name)
+          controllers (apply-controllers! (:route db) new-match)]
+      (assoc db :route (assoc new-match :controllers controllers)))))
 
 (rf/reg-event-db
   :set-docs

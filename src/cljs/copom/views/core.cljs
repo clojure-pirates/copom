@@ -44,7 +44,8 @@
   {:home #'requests/dashboard
    :about #'about-page
    :requests #'requests/requests-page
-   :create-request #'requests/create-request-page})
+   :create-request #'requests/create-request-page
+   :request #'requests/request-page})
 
 (defn page []
   [:div

@@ -44,14 +44,14 @@
                            :phone "66999381813"
                            :role "requester"}
         ;; full superscription params
-        victim-address (merge {:neighborhood/name "Jardim Vitória"
-                               :route/type "Rua"
-                               :route/name "2"}
-                              #:superscription{:num "123"
-                                               :complement "Ap. 1"
-                                               :reference "Ao lado do Bar X"
-                                               :city "Guarantã do Norte"
-                                               :state "Mato Grosso"})
+        victim-address #:superscription{:num "123"
+                                        :complement "Ap. 1"
+                                        :reference "Ao lado do Bar X"
+                                        :city "Guarantã do Norte"
+                                        :state "Mato Grosso"
+                                        :route #:route{:type "Rua"
+                                                       :name "2"}
+                                        :neighborhood #:neighborhood{:name "Jardim Vitória"}}  
         ;; full entity params
         victim #:entity{:name "John Doe"
                         :phone "190"
@@ -62,16 +62,17 @@
                         :father "John Doe Senior"
                         :mother "Mary Doe"
                         :superscription victim-address}
+        ;; minimum superscription params
+        req-address #:superscription{:neighborhood #:neighborhood{:name "Centro"}
+                                     :route #:route{:type "Rua"
+                                                    :name "1"}
+                                     :city "Guarantã do Norte"
+                                     :state "Mato Grosso"}
         req #:request{:complaint "test"
                       :summary "test request with an entity, delicts, and an address"
                       :status "pending"
                       :delicts delicts
-                      ;; minimum superscription params
-                      :superscription {:neighborhood/name "Centro"
-                                       :route/type "Rua"
-                                       :route/name "1"
-                                       :superscription/city "Guarantã do Norte"
-                                       :superscription/state "Mato Grosso"}
+                      :superscription req-address
                       :requester requester
                       :victim victim}]
     (requests/create-request {:params req})))

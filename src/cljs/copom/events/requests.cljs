@@ -67,13 +67,38 @@
       {:db (assoc-in db [:requests :new :request/errors]
                      (request-error-msg fields))})))
         
-
 (rf/reg-event-fx
   :requests/load-delicts
   base-interceptors
   (fn [_ _]
     (ajax/GET "/api/delicts"
               {:handler #(rf/dispatch [:rff/set [:delicts/all] %])
+               :error-handler #(prn %)
+               :response-format :json
+               :keywords? true})
+    nil))
+
+(defn edit-mode [req]
+  (let [;; :request/requester, :request/suspect, :request/witness, :request/victim
+        req-entities
+        (reduce (fn [m {{r :request-role/role} :entity/role :as e}]
+                  (assoc m (keyword "request" r) e))
+                {} (:request/entities req))
+        req-delicts
+        (reduce (fn [m d]
+                  (assoc m (:delict/id d) true))
+                {} (:request/delicts req))]
+    (merge (assoc req :request/delicts req-delicts) 
+           req-entities)))
+
+(rf/reg-event-fx
+  :requests/load-request
+  base-interceptors
+  (fn [_ [id]]
+    (ajax/GET (str "/api/requests/" id)
+              {:handler #(rf/dispatch [:rff/set [:requests/request]
+                                       (edit-mode %)]) 
+                                         
                :error-handler #(prn %)
                :response-format :json
                :keywords? true})
@@ -99,16 +124,20 @@
   (fn [db _] (:requests/all db)))
 
 (rf/reg-sub
+  :requests/latest
+  :<- [:requests/all]
+  (fn [reqs _]
+    (take 10 reqs)))
+
+(rf/reg-sub
   :requests/pending
   :<- [:requests/all]
   (fn [reqs _]
     (filter #(not= (:status %) "done") reqs)))
 
 (rf/reg-sub
-  :requests/latest
-  :<- [:requests/all]
-  (fn [reqs _]
-    (take 10 reqs)))
+  :requests/request
+  (fn [db _] (:requests/request db))) 
         
 (rf/reg-sub
   :requests.new/delicts
@@ -117,15 +146,14 @@
 
 (rf/reg-sub 
   :requests/priority-score
-  :<- [:delicts/all]
-  :<- [:requests.new/delicts]
-  (fn [[delicts checked] _]
-    (->> checked
-         (filter (fn [[id bool]] bool))
-         (reduce (fn [acc [id bool]] 
-                   (+ acc (some (fn [d] 
-                                  (and (= id (:delict/id d)) 
-                                       (:delict/weight d)))
-                                delicts)))
-                 0))))
-                 
+  (fn [db [_ path]]
+    (let [delicts (:delicts/all db)
+          checked (get-in db (conj path :request/delicts))]
+      (->> checked
+           (filter (fn [[id bool]] bool))
+           (reduce (fn [acc [id bool]] 
+                     (+ acc (some (fn [d] 
+                                    (and (= id (:delict/id d)) 
+                                         (:delict/weight d)))
+                                  delicts)))
+                   0)))))

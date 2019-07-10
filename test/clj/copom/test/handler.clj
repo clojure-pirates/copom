@@ -32,10 +32,9 @@
 (comment
   (in-ns 'copom.test.handler)
   
-  (-> (app {:request-method :post
-            :uri "/api/requests"
-            :body-params {:x 1}})
+  (-> (app {:request-method :get
+            :uri "/api/requests/1"})
 
       :body
-      slurp))
+      parse-json))
       

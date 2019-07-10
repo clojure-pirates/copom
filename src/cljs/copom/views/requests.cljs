@@ -20,13 +20,18 @@
       (.split " ")
       first))
 
+(defn calculate-priority [r]
+  (if-let [delicts (seq (:request/delicts r))]
+    (->> delicts (map :delict/weight) (reduce +))
+    0))
+
 (defn list-requests [requests]
   [:ul.list-group.list-group-flush
     (for [r @requests]
       ^{:key (:request/id r)}
-      [:a {:href (str "#/requisicao/" (:request/id r))}
+      [:a {:href (str "#/requisicoes/" (:request/id r) "/editar")}
         [:li.list-group-item
-          (:request/priority r) " | "
+          (calculate-priority r) " | "
           (:request/complaint r) " | "
           (:request/created-at r)]])])
 
@@ -48,10 +53,10 @@
         ;; TODO: typehead
         [input {:type :text
                 :class "form-control"
-                :name (conj path :neighborhood/name)
+                :name (conj path :superscription/neighborhood :neighborhood/name)
                 :placeholder "Bairro"}]]
        [:div.col-2
-        [select {:name (conj path :route/type)
+        [select {:name (conj path :superscription/route :route/type)
                  :class "form-control"
                  :default-value "Rua"}
          (for [r @route-types]
@@ -61,7 +66,7 @@
         ;; TODO: typehead
         [input {:type :text
                 :class "form-control"
-                :name (conj path :route/name)
+                :name (conj path :superscription/route :route/name)
                 :placeholder "Nome do logradouro"}]]
        [:div.col
         [input {:type :text
@@ -167,17 +172,16 @@
                  :class "form-control"
                  :name (conj path :entity/mother)}]]]]]]))
 
-(defn request-form []
-  (r/with-let [path [:requests :new]
-               fields (rf/subscribe [:rff/query path])
+(defn request-form [path]
+  (r/with-let [fields (rf/subscribe [:rff/query path])
                delicts (rf/subscribe [:delicts/all])
-               priority-score (rf/subscribe [:requests/priority-score])]
+               priority-score (rf/subscribe [:requests/priority-score path])]
     [card-nav
      [{:nav-title "Fato"
        :body ;; NOTE: use a select typehead? But where would I find all
              ;; the items?
              [:div
-               ;[comps/pretty-display @fields]
+               ;[comps/pretty-display @(rf/subscribe [:test-sub 1])]
                [form-group
                 [:span "Natureza"
                  [:span.text-danger " *obrigatório"]]
@@ -266,12 +270,30 @@
                    :on-click #(rf/dispatch [:requests/clear-form])} 
                                   
                   "Cancelar"]]]
-       :body [request-form]}]]))
+       :body [request-form [:requests :new]]}]]))
 
 (defn create-request-button []
   [:a.btn.btn-success
    {:href "/#/requisicoes/criar"}
    "Nova requisição"])
+
+(defn request-page []
+  (r/with-let [fields (rf/subscribe [:requests/request])
+               errors (rf/subscribe [:rff/query [:requests :new :request/errors]])]
+    [:section.section>div.container>div.content
+     [card
+      {:title [:h4 "Requisição #" (:request/id @fields)
+               (when @errors [:span.alert.alert-danger @errors])
+               [:div.btn-group.float-right
+                 [:button.btn.btn-success
+                  {:on-click #(rf/dispatch [:requests/update @fields])}
+                  "Salvar"]
+                 [:a.btn.btn-danger
+                  {:href (router/href :requests)
+                   :on-click #(rf/dispatch [:requests/clear-form])} 
+                                  
+                  "Cancelar"]]]
+       :body [request-form [:requests/request]]}]]))
 
 ; TODO: pagination (show only n requests per page)
 (defn requests-page []

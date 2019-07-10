@@ -10,63 +10,63 @@
 ;;; Address
 
 (defn min-address-params? [address]
-  (and (:neighborhood/name address)
-       (:route/name address)
-       (:route/type address)
-       (:superscription/city address)
-       (:superscription/state address)))
+  (let [{neighborhood :superscription/neighborhood
+         route :superscription/route} address]
+    (and (:neighborhood/name neighborhood)
+         (:route/name route)
+         (:route/type route)
+         (:superscription/city address)
+         (:superscription/state address))))
 
 ;; Create superscription and rows for neighborhood and route join tables.
+;; Returns superscription/id
 (defn create-superscription! [params]
-  (prn "create-superscription!" params)
-  (let [sup-params (dissoc params :neighborhood/id :route/id)
+  (let [sup-params (dissoc params 
+                           :superscription/neighborhood :superscription/route)        
+        rid (get-in params [:superscription/route :route/id]) 
+        nid (get-in params [:superscription/neighborhood :neighborhood/id]) 
         sup-id (q/create! {:table "superscription" :params sup-params})]
-    (prn 'superscription sup-id 'params params)
-    (q/create! {:table "superscription_neighborhood" 
-                :params {:superscription-id sup-id 
-                         :neighborhood-id (:neighborhood/id params)}})
+    (q/create! 
+      {:table "superscription_neighborhood" 
+       :params {:superscription-id sup-id, :neighborhood-id nid}}) 
     (q/create! {:table "superscription_route" 
-                :params {:superscription-id sup-id
-                         :route-id (:route/id params)}})
-    (q/by-id {:table "superscription"
-              :superscription/id sup-id})))
+                :params {:superscription-id sup-id, :route-id rid}})
+    sup-id))
 
-;; For address entities only.
-(defn get-update-create! [table params]
-  (prn "get-update-create!" table params)
-  (cond ;; No params? return nil
-        (empty? params) nil
-        ;; id present? update its fields.
-        ((keyword table "id") params)
-        (do (q/update! {:table table
-                        :params params 
-                        :where ["id = ?" ((keyword table "id") params)]})
-            params)
-        ;; No id? create a new row.
-        :else (if (= "superscription" table) 
-                (create-superscription! params)
-                (q/by-id
-                  {:table table
-                   (keyword table "id") (q/create! {:table table :params params})}))))                
+(defn create-or-update-superscription! [params]
+  (prn params)
+  (when (seq params)
+    (if-let [id (:superscription/id params)]
+      (do (q/update! {:table "superscription" :params params
+                      :where ["id = ?" id]})
+          id)
+      (create-superscription! params))))
 
+(defn create-returning! [table params]
+  (when (seq params)
+    (q/create! {:table table :params params})))
+            
 (defn create-address! [address]
+  (prn 'create-address! address)
   (when (min-address-params? address)
-    (prn) (prn "create-address!" address)
-    (let [route-params (select-keys address [:route/id :route/name :route/type])
-          neighborhood-params (select-keys address [:neighborhood/id :neighborhood/name])
+    (let [route-params (select-keys (:superscription/route address) 
+                                    [:route/id :route/name :route/type])
+          neighborhood-params (select-keys (:superscription/neighborhood address) 
+                                           [:neighborhood/id :neighborhood/name])
           superscription-params (select-keys address [:superscription/id
                                                       :superscription/num
                                                       :superscription/complement
                                                       :superscription/reference
                                                       :superscription/city
                                                       :superscription/state])
-          route (get-update-create! "route" route-params)
-          neighborhood (get-update-create! "neighborhood" neighborhood-params)
-          superscription (get-update-create! "superscription" 
-                                             (assoc superscription-params
-                                                :neighborhood/id (:neighborhood/id neighborhood)
-                                                :route/id (:route/id route)))]
-      (:superscription/id superscription))))
+          rid (or (:route/id route-params) 
+                  (create-returning! "route" route-params))
+          nid (or (:neighborhood/id neighborhood-params)
+                  (create-returning! "neighborhood" neighborhood-params))]
+      (-> superscription-params
+          (assoc-in [:superscription/neighborhood :neighborhood/id] nid)
+          (assoc-in [:superscription/route :route/id] rid)
+          create-or-update-superscription!))))
 
 ;;; Entity
 
@@ -81,7 +81,6 @@
       [:entity/doc-type :entity/doc-issuer :entity/doc-number])))
 
 (defn create-entity! [params]
-  (println "create-entity!" params)
   (when (min-entity-params? params)
     (let [superscription-id (create-address! (:entity/superscription params))
           doc-keys (entity-doc-keys params)
@@ -110,7 +109,6 @@
           request-entity-id (q/create! {:table "request_entity"
                                         :params {::request-id request-id
                                                  ::entity-id id}})]
-      (prn 'role role 'request-entity-id request-entity-id)
       (q/create! {:table "request_entity_role"
                   :params {::request-entity-id request-entity-id
                            ::role-id (:request-role/id role)}}))))
@@ -164,12 +162,16 @@
 
 (defn get-request [req]
   (response/ok
-    (db/parser [{[:request/by-id (get-in req [:params :request/id])]
+    (db/parser [{[:request/by-id (get-in req [:parameters :path :request/id])]
                  c/request-query}])))    
-#_(get-request {:params {:request/id 1}})
+#_(get-request {:parameters {:path {:request/id 1}}})
               
 ; UPDATE
 (defn update-request [req])
 
 ; DELETE
 (defn delete-request [req])
+
+(comment
+  (db/parser [{:superscriptions/all
+               c/superscription-query}]))

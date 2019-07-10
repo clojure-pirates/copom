@@ -3,13 +3,17 @@
     [re-frame.core :as rf]
     [reitit.core :as reitit]))
 
-(defn home-controller [{:keys [path]}]
+(defn home-controller []
   (rf/dispatch [:requests/load-requests]))
 
-(defn requests-controller [{:keys [path]}]
+(defn requests-controller []
   (rf/dispatch [:requests/load-requests]))
 
-(defn create-request-controller [_]
+(defn request-controller [params]
+  (rf/dispatch [:requests/load-delicts])
+  (rf/dispatch [:requests/load-request (js/parseInt (:id params))]))
+
+(defn create-request-controller []
   (rf/dispatch [:requests/load-delicts]))
 
 (def router
@@ -20,6 +24,10 @@
                       :controllers [{:start requests-controller}]}]
      ["/requisicoes/criar" {:name :create-request
                             :controllers [{:start create-request-controller}]}]
+     ["/requisicoes/:id/editar" {:name :request
+                                 :controllers [{:params :path-params
+                                                :start request-controller}]}]
+                                               
      ["/about" :about]]))
 
 

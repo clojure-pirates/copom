@@ -3,6 +3,8 @@
     [copom.middleware :as middleware]
     [copom.layout :refer [error-page]]
     [copom.routes.home :refer [home-routes]]
+    [reitit.coercion :as coercion]
+    [reitit.ring.coercion :as rrc]
     reitit.coercion.spec
     [reitit.ring :as ring]
     [ring.middleware.content-type :refer [wrap-content-type]]
@@ -20,7 +22,9 @@
     (ring/ring-handler
       (ring/router
         [(home-routes)]
-        {:data {:coercion reitit.coercion.spec/coercion}})
+        {:data {:middleware [rrc/coerce-exceptions-middleware
+                             rrc/coerce-request-middleware
+                             rrc/coerce-response-middleware]}})
       (ring/routes
         (ring/create-resource-handler
           {:path "/"})
