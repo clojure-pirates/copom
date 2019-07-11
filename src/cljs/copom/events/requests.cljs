@@ -1,6 +1,7 @@
 (ns copom.events.requests
   (:require
     [ajax.core :as ajax]
+    [clojure.pprint]
     [copom.events.utils :refer [base-interceptors]]
     [re-frame.core :as rf]))
 
@@ -9,7 +10,7 @@
 
 (defn event-timestamp [date time]
   (-> date (.split "T") first
-      (str "T" time ".000>")))
+      (str "T" time ".000")))
 
 
 (defn request-coercions [m]
@@ -55,7 +56,9 @@
               :handler #(do 
                             (rf/dispatch [:navigate/by-path "/#/"])
                             (rf/dispatch [:requests/clear-form]))
-              :error-handler #(prn %)})
+              :error-handler #(prn %)
+              :response-format :json
+              :keywords? true})
   nil)
 
 (rf/reg-event-fx
@@ -87,8 +90,12 @@
         req-delicts
         (reduce (fn [m d]
                   (assoc m (:delict/id d) true))
-                {} (:request/delicts req))]
-    (merge (assoc req :request/delicts req-delicts) 
+                {} (:request/delicts req))
+        [d t] (when-let [s (:request/event-timestamp req)]
+                (clojure.string/split s #"T"))
+        req-datetime #:request{:date d :time t}]
+    (merge (assoc req :request/delicts req-delicts)
+           req-datetime
            req-entities)))
 
 (rf/reg-event-fx

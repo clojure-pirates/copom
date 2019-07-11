@@ -86,11 +86,12 @@
 
 (comment
   
+  (c/create! {:table "request" :params {:request/event-timestamp "2019-07-11T15:47:05.000>"}})
   (c/get-or-create! {:table "route" :params {:route/type "Rua" :route/name "1"}})
   (c/all {:table "neighborhood"})
   (c/all {:table "delict"})
   (c/all {:table "request_role"})
-  (db/parser [{[:request-role/by-role "suspect"]
-               [:request-role/id]}])
+  (db/parser [{[:requests/all]
+               [:request/id :request/event-timestamp]}])
   
   (reset-db!))

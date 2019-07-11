@@ -11,7 +11,9 @@
   (m/decode formats/instance "application/json" body))
 
 (defn body-params [req params]
-  (assoc req :body-params params))
+  (-> req
+      (json-body params)
+      (clojure.set/rename-keys {:body :body-params})))
 
 (use-fixtures
   :once
@@ -36,5 +38,47 @@
             :uri "/api/requests/1"})
 
       :body
-      parse-json))
-      
+      parse-json)
+  
+  (-> (app (-> (request :post "/api/requests")
+               (body-params r))))
+
+  (def r  {:request/delicts
+           {1 true, 2 false, 3 false, 4 false, 5 false, 6 false, 7 true},
+           :request/requester
+           {:entity/role "requester",
+            :entity/superscription
+            {:superscription/route {:route/type "Rua"},
+             :superscription/city "Guarantã do Norte",
+             :superscription/state "Mato Grosso"},
+            :entity/doc-type "CPF"},
+           :request/status "pending",
+           :request/victim
+           {:entity/role "victim",
+            :entity/superscription
+            {:superscription/route {:route/type "Rua"},
+             :superscription/city "Guarantã do Norte",
+             :superscription/state "Mato Grosso"},
+            :entity/doc-type "CPF"},
+           :request/superscription
+           {:superscription/route {:route/type "Rua"},
+            :superscription/city "Guarantã do Norte",
+            :superscription/state "Mato Grosso"},
+           :request/date "2019-07-10T00:00:00.000Z",
+           :request/witness
+           {:entity/role "witness",
+            :entity/superscription
+            {:superscription/route {:route/type "Rua"},
+             :superscription/city "Guarantã do Norte",
+             :superscription/state "Mato Grosso"},
+            :entity/doc-type "CPF"},
+           :request/complaint "create test",
+           :request/time "08:57:58",
+           :request/suspect
+           {:entity/role "suspect",
+            :entity/superscription
+            {:superscription/route {:route/type "Rua"},
+             :superscription/city "Guarantã do Norte",
+             :superscription/state "Mato Grosso"},
+            :entity/doc-type "CPF"}, 
+           :request/summary "create test"}))

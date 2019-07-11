@@ -33,7 +33,7 @@
    ["/api"
     ["/delicts" {:get get-delicts}]
     ["/requests" {:get requests/get-requests
-                  :post {:parameters {:body :requests.new/request}
+                  :post {;:parameters {:body :requests.new/request}
                          :handler requests/create-request}}]
     ["/requests/{request/id}" {:get {:parameters {:path (s/keys :req [:request/id])}}
                                :handler requests/get-request}]]])

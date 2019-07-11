@@ -181,7 +181,7 @@
        :body ;; NOTE: use a select typehead? But where would I find all
              ;; the items?
              [:div
-               ;[comps/pretty-display @(rf/subscribe [:test-sub 1])]
+               ;[comps/pretty-display @fields]
                [form-group
                 [:span "Natureza"
                  [:span.text-danger " *obrigatório"]]

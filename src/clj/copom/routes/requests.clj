@@ -34,7 +34,6 @@
     sup-id))
 
 (defn create-or-update-superscription! [params]
-  (prn params)
   (when (seq params)
     (if-let [id (:superscription/id params)]
       (do (q/update! {:table "superscription" :params params
@@ -47,7 +46,6 @@
     (q/create! {:table table :params params})))
             
 (defn create-address! [address]
-  (prn 'create-address! address)
   (when (min-address-params? address)
     (let [route-params (select-keys (:superscription/route address) 
                                     [:route/id :route/name :route/type])
@@ -146,11 +144,13 @@
 
 ; CREATE
 (defn create-request [req]
-  (jdbc/with-db-transaction [conn db/*db*]
-   (binding [db/*db* conn]
-     (let [entities-role+id (create-entities! (:params req))
-           request-id (create-request! (:params req) entities-role+id)]
-       (response/ok {:request/id request-id})))))
+  (clojure.pprint/pprint req)
+  (response/ok
+    (jdbc/with-db-transaction [conn db/*db*]
+     (binding [db/*db* conn]
+       (let [entities-role+id (create-entities! (:params req))
+             request-id (create-request! (:params req) entities-role+id)]
+         {:request/id request-id})))))
               
 ; READ
 (defn get-requests [req]
