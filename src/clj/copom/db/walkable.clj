@@ -42,14 +42,15 @@
             :requests/all "request"
             :request-roles/all "request_role"
             :request-role/by-id :request-role/id
-            :request-role/by-role :request-role/role}
+            :request-role/by-role :request-role/role
+            :request-entity/by-request-id :request-entity/request-id}
    
    :joins {:superscription/neighborhood [:superscription/id :superscription-neighborhood/superscription_id
                                          :superscription-neighborhood/neighborhood-id :neighborhood/id]
            :superscription/route [:superscription/id :superscription-route/superscription_id
                                   :superscription-route/route-id :route/id]
-           :entity/superscription [:entity/id :entity-superscription/entity-id
-                                   :entity-superscription/superscription-id :superscription/id]
+           :entity/superscription [:request-entity/id :request-entity-superscription/request-entity-id
+                                   :request-entity-superscription/superscription-id :superscription/id]
            :entity/role [:request-entity/id :request-entity-role/request-entity-id
                          :request-entity-role/role-id :request-role/id]
            :request/superscription [:request/id :request-superscription/request-id
@@ -63,7 +64,8 @@
    
    :true-columns (->> [c/user-columns c/neighborhood-columns c/route-columns
                        c/superscription-columns c/delict-columns c/entity-columns
-                       c/request-columns c/request-role-columns]
+                       c/request-columns c/request-role-columns
+                       c/request-entity-columns]
                       flatten (into #{}))
    
    :cardinality {:user/by-id :one

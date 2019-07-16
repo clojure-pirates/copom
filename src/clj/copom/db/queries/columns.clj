@@ -27,6 +27,9 @@
    :request/status :request/measures
    :request/created-at :request/updated-at])
 
+(def request-entity-columns
+  [:request-entity/id :request-entity/request-id :request-entity/entity-id])
+
 (def request-role-columns
   [:request-role/id :request-role/role])
 

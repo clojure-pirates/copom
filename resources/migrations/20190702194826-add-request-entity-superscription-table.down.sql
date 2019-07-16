@@ -1,0 +1,1 @@
+DROP TABLE request_entity_superscription;

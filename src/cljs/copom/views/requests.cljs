@@ -38,6 +38,13 @@
 ;; -------------------------
 ;; Create Request Page
 
+;; `m` is {:(table-name)/id oid :superscription/id sid}
+(defn clear-address-form-button [m path]
+  [:button.btn.btn-warning.float-right 
+   {:on-click #(rf/dispatch [:superscriptions/remove m path])}
+   "Limpar endereço"])
+  
+
 ;; TODO: route-types sub
 ;; TODO: typeheads for neighborhood, route-name, city, state
 (defn address-form [path]
@@ -46,8 +53,7 @@
     [:div
      
      [form-group
-      [:span "Logradouro"
-       [:span.text-danger " *obrigatório"]]
+      [:span "Logradouro"]
       [:div.form-row
        [:div.col
         ;; TODO: typehead
@@ -129,7 +135,13 @@
                 :class "form-control"
                 :name (conj path :entity/phone)}]]]]
      [:fieldset
-      [:legend "Endereço"]
+      [:legend "Endereço"
+       [clear-address-form-button 
+        {:request/id (:request/id @(rf/subscribe [:rff/query (vec (butlast path))]))
+         :entity/id (:entity/id @fields)
+         :superscription/id (get-in @fields [:entity/superscription 
+                                             :superscription/id])}
+        (conj path :entity/superscription)]]
       [address-form (conj path :entity/superscription)]]
      [:fieldset
        [:legend "Documento de identidade"]
@@ -181,7 +193,7 @@
        :body ;; NOTE: use a select typehead? But where would I find all
              ;; the items?
              [:div
-               ;[comps/pretty-display @fields]
+               ; [comps/pretty-display @fields]
                [form-group
                 [:span "Natureza"
                  [:span.text-danger " *obrigatório"]]
@@ -213,7 +225,14 @@
                         :name (conj path :request/time)
                         :default-value (to-time-string (js/Date.))}]]]}
       {:nav-title "Endereço do fato"
-       :body [address-form (conj path :request/superscription)]}
+       :body [:fieldset
+              [:legend "Endereço"
+               [clear-address-form-button 
+                {:request/id (:request/id @fields)
+                 :superscription/id (get-in @fields [:request/superscription
+                                                     :superscription/id])}
+                (conj path :request/superscription)]]
+              [address-form (conj path :request/superscription)]]}
       ;; typehead
       {:nav-title "Solicitante(s)"
        ; TODO: (button to add another)]}]]

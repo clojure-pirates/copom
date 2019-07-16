@@ -35,5 +35,11 @@
     ["/requests" {:get requests/get-requests
                   :post {;:parameters {:body :requests.new/request}
                          :handler requests/create-request}}]
-    ["/requests/{request/id}" {:get {:parameters {:path (s/keys :req [:request/id])}}
-                               :handler requests/get-request}]]])
+    ["/requests/{request/id}" {:parameters {:path (s/keys :req [:request/id])}
+                               :get requests/get-request
+                               :put requests/update-request}]
+    ["/requests/{request/id}/superscriptions/{superscription/id}"
+     {:delete requests/delete-request-superscription}]
+    ["/requests/{request/id}/entities/{entity/id}/superscriptions/{superscription/id}"
+     {:delete requests/delete-request-entity-superscription}]]])
+    

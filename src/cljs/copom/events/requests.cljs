@@ -5,6 +5,9 @@
     [copom.events.utils :refer [base-interceptors]]
     [re-frame.core :as rf]))
 
+;; -------------------------
+;; Helpers
+
 (def requests-interceptos 
   (conj base-interceptors (rf/path :requests)))
 
@@ -50,15 +53,33 @@
          (str "Campos obrigatórios: "))
     "."))
 
+(defn edit-mode [req]
+  (let [;; :request/requester, :request/suspect, :request/witness, :request/victim
+        req-entities
+        (reduce (fn [m {{r :request-role/role} :entity/role :as e}]
+                  (assoc m (keyword "request" r) e))
+                {} (:request/entities req))
+        req-delicts
+        (reduce (fn [m d]
+                  (assoc m (:delict/id d) true))
+                {} (:request/delicts req))
+        [d t] (when-let [s (:request/event-timestamp req)]
+                (clojure.string/split s #"T"))
+        req-datetime #:request{:date d :time t}]
+    (merge (assoc req :request/delicts req-delicts)
+           req-datetime
+           req-entities)))
+
+;; -------------------------
+;; Handlers
+
 (defn create-request! [fields]
   (ajax/POST "/api/requests"
              {:params (request-coercions fields)
               :handler #(do 
                             (rf/dispatch [:navigate/by-path "/#/"])
                             (rf/dispatch [:requests/clear-form]))
-              :error-handler #(prn %)
-              :response-format :json
-              :keywords? true})
+              :error-handler #(prn %)})
   nil)
 
 (rf/reg-event-fx
@@ -80,23 +101,6 @@
                :response-format :json
                :keywords? true})
     nil))
-
-(defn edit-mode [req]
-  (let [;; :request/requester, :request/suspect, :request/witness, :request/victim
-        req-entities
-        (reduce (fn [m {{r :request-role/role} :entity/role :as e}]
-                  (assoc m (keyword "request" r) e))
-                {} (:request/entities req))
-        req-delicts
-        (reduce (fn [m d]
-                  (assoc m (:delict/id d) true))
-                {} (:request/delicts req))
-        [d t] (when-let [s (:request/event-timestamp req)]
-                (clojure.string/split s #"T"))
-        req-datetime #:request{:date d :time t}]
-    (merge (assoc req :request/delicts req-delicts)
-           req-datetime
-           req-entities)))
 
 (rf/reg-event-fx
   :requests/load-request
@@ -121,6 +125,38 @@
                :response-format :json
                :keywords? true})
     nil))
+
+(rf/reg-event-fx
+  :requests/update
+  base-interceptors
+  (fn [_ [fields]]
+    (ajax/PUT (str "/api/requests/" (:request/id fields))
+              {:params (request-coercions fields)
+               :handler #(rf/dispatch [:navigate/by-path "/#/"])
+               :error-handler #(prn %)})
+    nil))
+
+(rf/reg-event-db
+  :superscriptions/remove
+  base-interceptors
+  (fn [db [m path]]
+    ;; delete superscription and its db relations
+    (let [{rid :request/id
+           eid :entity/id
+           sid :superscription/id} m
+          uri (cond (and rid eid sid)
+                    (str "/api/requests/" rid "/entities/" eid "/superscriptions/" sid)
+                    (and rid sid)
+                    (str "/api/requests/" rid "/superscriptions/" sid))]
+      (when uri
+        (ajax/DELETE uri
+                     {:params m
+                      :error-handler #(prn %)})))
+    ;; clear the form
+    (assoc-in db path nil)))
+
+;; -------------------------
+;; Subs
 
 (rf/reg-sub
   :delicts/all
