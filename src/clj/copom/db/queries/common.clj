@@ -10,7 +10,7 @@
   (delete! [m])
   (get-by [m])
   (get-or-create! [m] "Query :table for :params and returns it, if there's a 
-                     match. Otherwise, creates a new row and returns all fields.")
+                      match. Otherwise, creates a new row and returns all fields.")
   (update! [m]))
   
 (extend-protocol Query

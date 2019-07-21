@@ -3,7 +3,6 @@
     [clojure.java.jdbc :as jdbc]
     [copom.db.core :as db :refer [*db*]]))
 
-
 ; -----------------------------------------------------------------------------
 ; Utils
 

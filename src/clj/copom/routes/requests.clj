@@ -7,6 +7,14 @@
     [copom.db.queries.columns :as c]
     [ring.util.http-response :as response]))
 
+(def request-core-keys 
+  [:request/complaint :request/summary :request/event-timestamp
+   :request/status :request/measures])
+
+(defn request-entities [params]
+  (let [ks [:request/requester :request/suspect :request/witness :request/victim]]
+    ((apply juxt ks) params)))
+
 ;;; Address
 
 (defn min-address-params? [address]
@@ -93,9 +101,8 @@
                          :superscription-id superscription-id}})))
 
 (defn create-entities! [params]
-  (let [entities [:request/requester :request/suspect :request/witness :request/victim]
-        [requester suspect witness victim :as entities-params] 
-        ((apply juxt entities) params)]
+  (let [[requester suspect witness victim :as entities-params] 
+        (request-entities params)]
     ;; Return a map of the entities' roles with the respect ids.
     (reduce (fn [acc entity-params]
               (merge acc (create-entity! entity-params)))
@@ -148,6 +155,66 @@
          reid (get-in params [(keyword "request" role) 
                               :entity/superscription])))))
 
+;;; DELETE
+
+(defn delete-request-superscription! [params]
+  (let [{rid :request/id
+         sid :superscription/id} params
+        where ["request_id = ? AND superscription_id = ?" rid sid]]
+    (q/delete! {:table "request_superscription" :where where})))
+
+(defn delete-request-entity-relations [rid eid roleid])
+  ; delete request-entity
+  ; dele
+  
+
+;;; Update
+
+(defn update-request! [params]
+  (q/update! {:table "request"
+              :params (select-keys params request-core-keys)
+              :where ["id = ?" (:request/id params)]}))
+
+(defn update-request-superscription! [{rid :request/id :as params}]
+  (let [{sid :superscription/id :as s1} 
+        (get-in params [:request/superscription :superscription/id])]
+    (cond sid
+          (let [s2 (db/parser [{[:superscription/by-id sid]
+                                c/superscription-query}])]
+            (when (not= s1 s2)
+              (delete-request-superscription! 
+                {:request/id rid :superscription/id sid})
+              (create-request-superscription! rid s1)))
+          (seq s1)
+          (create-request-superscription! rid s1))))
+
+(defn find-entity [id role entities]
+  (some #(and (= id (:entity/id %))
+              (= role (get-in % [:entity/role :request-role/role]))
+              %)
+        entities))
+
+(defn update-request-entities-relations! [{rid :request/id :as params}]
+  (let [request-entities
+        (db/parser [{[:request/by-id rid]
+                     [{:request/entities
+                       (conj c/entity-columns
+                             {:entity/role c/request-role-columns})}]}])]
+        
+    (doseq [{eid :entity/id
+             role :entity/role 
+             :as e1} (request-entities params)]
+      (cond eid
+            (let [e2 (find-entity eid role request-entities)
+                  reid (-> [{(list [:request-entity/by-request-id rid]
+                                   {:filters [:= :request-entity/entity-id eid]})
+                             [:request-entity/id]}]
+                           db/parser :request-entity/id)] 
+              (when (not= (select-keys e1 c/entity-columns)
+                          (select-keys e2 c/entity-columns))
+                ()))))))
+                
+              
                                                        
 ; -----------------------------------------------------------------------------
 ; Handlers
@@ -180,19 +247,22 @@
 #_(get-request {:parameters {:path {:request/id 1}}})
       
 ; UPDATE
-(defn update-request [req]
+(defn update-request [{:keys [params]}]
   (response/ok
+    (jdbc/with-db-transaction [conn db/*db*]
+     (binding [db/*db* conn]
+       (update-request! params)
+       (update-request-superscription! params)
+       (update-request-entities-relations! params)))
+       ; update-request-delicts!
     {:result :ok}))
 
 ; DELETE
 (defn delete-request [req])
 
 (defn delete-request-superscription [{:keys [params]}]
-  (let [{rid :request/id
-         sid :superscription/id} params
-        where ["request_id = ? AND superscription_id = ?" rid sid]]
-    (q/delete! {:table "request_superscription" :where where})
-    (response/ok {:result :ok})))
+  (delete-request-superscription! params)
+  (response/ok {:result :ok}))
 
 (defn delete-request-entity-superscription [{:keys [params]}]
   (let [{rid :request/id, eid :entity/id, sid :superscription/id} params

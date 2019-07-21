@@ -8,6 +8,7 @@
     [copom.config :refer [env]]
     [walkable.sql-query-builder :as sqb]))
 
+
 (defstate ^:dynamic *db*
           :start (conman/connect! {:jdbc-url (env :database-url)})
           :stop (conman/disconnect! *db*))

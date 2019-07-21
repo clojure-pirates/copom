@@ -1,5 +1,7 @@
 (ns copom.core
   (:require
+    [clojure.java.jdbc :as jdbc]
+    [copom.db.core :refer [*db*]]
     [copom.handler :as handler]
     [copom.nrepl :as nrepl]
     [luminus.http-server :as http]
@@ -45,6 +47,7 @@
                         mount/start-with-args
                         :started)]
     (log/info component "started"))
+  (jdbc/execute! *db* ["PRAGMA foreign_keys = ON"])
   (.addShutdownHook (Runtime/getRuntime) (Thread. stop-app)))
 
 (defn -main [& args]

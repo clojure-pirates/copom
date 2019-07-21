@@ -2,13 +2,15 @@
   "Userspace functions you can run by default in your local REPL."
   (:require
     [copom.config :refer [env]]
+    [clojure.java.jdbc :as jdbc]
+    [clojure.repl :refer :all]
     [clojure.spec.alpha :as s]
     [clojure.tools.namespace.repl :refer [refresh]]
     [expound.alpha :as expound]
     [mount.core :as mount]
     [copom.figwheel :refer [start-fw stop-fw cljs]]
     [copom.core :refer [start-app]]
-    [copom.db.core]
+    [copom.db.core :refer [*db*]]
     [conman.core :as conman]
     [luminus-migrations.core :as migrations]))
 
@@ -20,7 +22,8 @@
   "Starts application.
   You'll usually want to run this on startup."
   []
-  (mount/start-without #'copom.core/repl-server))
+  (mount/start-without #'copom.core/repl-server)
+  (jdbc/execute! *db* ["PRAGMA foreign_keys = ON"]))
 
 (defn stop 
   "Stops application."

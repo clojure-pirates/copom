@@ -8,6 +8,10 @@
 ;; -------------------------
 ;; Helpers
 
+(def core-request-keys
+  [:request/complaint :request/summary :request/event-timestamp 
+   :request/status :request/measures])
+
 (def requests-interceptos 
   (conj base-interceptors (rf/path :requests)))
 
@@ -107,9 +111,9 @@
   base-interceptors
   (fn [_ [id]]
     (ajax/GET (str "/api/requests/" id)
-              {:handler #(rf/dispatch [:rff/set [:requests/request]
-                                       (edit-mode %)]) 
-                                         
+              {:handler #(let [r (edit-mode %)]
+                           (rf/dispatch [:rff/set [:requests/request] r])
+                           (rf/dispatch [:rff/set [:requests/edit] r]))
                :error-handler #(prn %)
                :response-format :json
                :keywords? true})
@@ -130,11 +134,14 @@
   :requests/update
   base-interceptors
   (fn [_ [fields]]
-    (ajax/PUT (str "/api/requests/" (:request/id fields))
-              {:params (request-coercions fields)
-               :handler #(rf/dispatch [:navigate/by-path "/#/"])
-               :error-handler #(prn %)})
-    nil))
+    (let [r (rf/subscribe [:requests/request])]
+      (when (not= (select-keys r core-request-keys) 
+                  (select-keys fields core-request-keys))
+        (ajax/PUT (str "/api/requests/" (:request/id fields))
+                  {:params (request-coercions fields)
+                   :handler #(rf/dispatch [:navigate/by-path "/#/"])
+                   :error-handler #(prn %)}))
+      nil)))
 
 (rf/reg-event-db
   :superscriptions/remove

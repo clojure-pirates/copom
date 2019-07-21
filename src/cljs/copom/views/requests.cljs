@@ -297,13 +297,14 @@
    "Nova requisição"])
 
 (defn request-page []
-  (r/with-let [fields (rf/subscribe [:requests/request])
+  (r/with-let [fields (rf/subscribe [:rff/query [:requests/edit]])
                errors (rf/subscribe [:rff/query [:requests :new :request/errors]])]
     [:section.section>div.container>div.content
      [card
       {:title [:h4 "Requisição #" (:request/id @fields)
                (when @errors [:span.alert.alert-danger @errors])
-               [:div.btn-group.float-right
+               " "
+               [:div.btn-group
                  [:button.btn.btn-success
                   {:on-click #(rf/dispatch [:requests/update @fields])}
                   "Salvar"]
@@ -312,7 +313,7 @@
                    :on-click #(rf/dispatch [:requests/clear-form])} 
                                   
                   "Cancelar"]]]
-       :body [request-form [:requests/request]]}]]))
+       :body [request-form [:requests/edit]]}]]))
 
 ; TODO: pagination (show only n requests per page)
 (defn requests-page []
