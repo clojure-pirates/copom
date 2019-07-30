@@ -7,6 +7,18 @@
     [copom.db.queries.columns :as c]
     [ring.util.http-response :as response]))
 
+(defn get-request-entities-by-request-id [rid]
+  (db/parser [{[:request/by-id rid]
+               [{:request/entities
+                 (conj c/entity-columns
+                       {:entity/role c/request-role-columns})}]}]))
+
+(defn get-request-entity [rid eid]
+  (-> [{(list [:request-entity/by-request-id rid]
+              {:filters [:= :request-entity/entity-id eid]})
+        [:request-entity/id]}]
+      db/parser))
+
 (def request-core-keys 
   [:request/complaint :request/summary :request/event-timestamp
    :request/status :request/measures])
@@ -163,10 +175,8 @@
         where ["request_id = ? AND superscription_id = ?" rid sid]]
     (q/delete! {:table "request_superscription" :where where})))
 
-(defn delete-request-entity-relations [rid eid roleid])
-  ; delete request-entity
-  ; dele
-  
+(defn delete-entity! [eid]
+  (q/delete! {:table "entity" :where ["id = ?" eid]}))  
 
 ;;; Update
 
@@ -192,32 +202,65 @@
   (some #(and (= id (:entity/id %))
               (= role (get-in % [:entity/role :request-role/role]))
               %)
-        entities))
+        entities))  
 
 (defn update-request-entities-relations! [{rid :request/id :as params}]
-  (let [request-entities
-        (db/parser [{[:request/by-id rid]
-                     [{:request/entities
-                       (conj c/entity-columns
-                             {:entity/role c/request-role-columns})}]}])]
-        
+  (let [request-entities (get-request-entities-by-request-id rid)]        
     (doseq [{eid :entity/id
              role :entity/role 
              :as e1} (request-entities params)]
       (cond eid
             (let [e2 (find-entity eid role request-entities)
-                  reid (-> [{(list [:request-entity/by-request-id rid]
-                                   {:filters [:= :request-entity/entity-id eid]})
-                             [:request-entity/id]}]
-                           db/parser :request-entity/id)] 
+                  reid (get-request-entity rid eid)] 
               (when (not= (select-keys e1 c/entity-columns)
                           (select-keys e2 c/entity-columns))
-                ()))))))
-                
+                (delete-entity! eid)
+                (create-request-entities-relations!
+                  rid
+                  (create-entity! e1)
+                  params)))))))
               
-                                                       
+      
 ; -----------------------------------------------------------------------------
-; Handlers
+; Complaint Handlers
+  
+
+(defn get-complaints [{{query :query} :params}]
+  (response/ok
+    (->>
+      (db/parser
+       [{(list :requests/all
+               {:distinct [:request/complaint]
+                :filters (when query [:like :request/complaint (str "%" query "%")])
+                :limit 10})
+         [:request/complaint]}])
+      (map :request/complaint)
+      (into #{}))))
+
+; -----------------------------------------------------------------------------
+; Neighborhood Handlers
+
+(defn get-neighborhoods [{{query :query} :params}]
+  (response/ok
+    (db/parser
+      [{(list :neighborhoods/all
+              {:filters (when query [:like :neighborhood/name (str "%" query "%")])
+               :limit 10})
+        c/neighborhood-columns}])))
+
+; -----------------------------------------------------------------------------
+; Route Handlers
+
+(defn get-routes [{{query :query} :params}]
+  (response/ok
+    (db/parser
+      [{(list :routes/all
+              {:filters (when query [:like :route/name (str "%" query "%")])
+               :limit 10})
+        c/route-columns}])))
+
+; -----------------------------------------------------------------------------
+; Request Handlers
 
 ; CREATE
 

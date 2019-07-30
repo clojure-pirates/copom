@@ -1,8 +1,10 @@
 (ns copom.views.components
   (:require
+    [ajax.core :as ajax]
     [reagent.core :as r]
     [clojure.string :as string]
-    [reframe-forms.core :as rff]))
+    [re-frame.core :as rf]
+    [copom.forms :as rff]))
 
 ; ------------------------------------------------------------------------------
 ; Debugging
@@ -40,28 +42,118 @@
 
 (defn radio-input
   "Radio component, with common boilerplate."
-  [{:keys [name class value label checked?]}]
+  [{:keys [name class doc value label checked?]}]
   [:div.form-check.form-check-radio
    [:label.form-check-label
-    [rff/input {:type :radio
-                :name name
-                :class (or class "form-check-input")
-                :value value
-                :checked? checked?}]
+    [rff/input (merge
+                 {:type :radio
+                  :name name
+                  :class (or class "form-check-input")
+                  :doc doc
+                  :value value
+                  :checked? checked?})]
     label
     [:span.circle>span.check]]])
 
 (defn checkbox-input
   "Checkbox component, with common boilerplate."
-  [{:keys [name class label checked?]}]
+  [{:keys [name class doc label checked?]}]
   [:div.form-check
    [:label.form-check-label
     [rff/input {:type :checkbox
                 :name name
                 :class (or class "form-check-input")
+                :doc doc
                 :checked? checked?}]
     label
     [:span.form-check-sign>span.check]]])
+
+; ------------------------------------------------------------------------------
+; REFRAME-FORMS TEMP
+; ------------------------------------------------------------------------------
+
+;;; TYPEHEAD INPUT
+
+(rf/reg-event-fx
+  :rff/typehead-query
+  (fn [_ [_ {{:keys [uri handler]} 
+             :data-source name :name getter :getter 
+             :as attrs}
+            items]]
+    (let [path (if (coll? name) name [name])
+          base-path (into [:rff/data] path)
+          q (rff/get-stored-val @(:doc attrs) name)
+          save-and-display 
+          (fn [items*]
+            (prn items*)
+            (do (reset! items items*)
+                (rf/dispatch [:rff/set (conj base-path :display?) true])))]
+      (when-not (string/blank? q)
+        (cond uri
+              (ajax/GET uri
+                        {:params {:query q}
+                         :handler #(let [items* (if handler (handler %) %)]
+                                     (save-and-display items*))
+                         :error-handler #(prn "typehead-input" %)
+                         :response-format :json
+                         :keywords? true})
+              handler (-> q handler save-and-display))))
+    nil))
+
+; - As the user types the component will query the :uri given in :data-source.
+; If a :handler was given, it will be called with the result of the query.
+; - If no :uri was given, :handler must provide the items for the component.
+; - If each item is a coll, the user can provide a :getter (fn) to fetch the 
+; text for the :value. By default :getter is `identity`.
+; - The user can also provide a :handler that will be passed an item when
+; the frontend user clicks an item of the list.
+(defn input [attrs]
+  (let [{:keys [name data-source doc getter
+                handler no-results]
+         :or {getter identity}} attrs
+        display? (r/atom nil)
+        items (r/atom nil)
+        on-change
+        (fn [e]
+          ((rff/on-change-set! doc name rff/target-value) e)
+          (let [{uri :uri h :handler} data-source
+                q (rff/get-stored-val @doc name)
+                save-and-display 
+                (fn [items*]
+                  (do (reset! items items*)
+                      (reset! display? true)))]
+            (when-not (string/blank? q)
+              (cond uri
+                    (ajax/GET uri
+                              {:params {:query q}
+                               :handler #(let [items* (if h (h %) %)]
+                                           (save-and-display items*))
+                               :error-handler #(prn "typehead-input" %)
+                               :response-format :json
+                               :keywords? true})
+                    h (-> q h save-and-display)))))
+        edited-attrs
+        (merge {:on-change on-change
+                :type :text
+                :on-key-down (on-key-handler {"Escape" #(reset! display? false)})} 
+               (-> attrs (dissoc :handler) rff/clean-attrs))]
+    (fn []
+      [:div
+        [:input (assoc edited-attrs :value (rff/get-stored-val @doc name))]
+        (when @display?
+          (if-not (seq @items)
+            no-results
+            [:div.dropdown
+             [:button.btn.btn-secondary.dropdown-toggle.d-none "Dropdown"]
+             [:div.dropdown-menu (when (seq @items) {:class "show"})
+              (for [item @items]
+               ^{:key item}
+               [:button.dropdown-item
+                {:on-click #(do (reset! display? false)
+                                (swap! doc assoc-in (rff/make-vec name)
+                                       (getter item)) 
+                                (when handler (handler item)))}
+                (getter item)])]]))])))
 
 ; ------------------------------------------------------------------------------
 ; MISC

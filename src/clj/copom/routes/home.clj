@@ -32,12 +32,15 @@
                         (response/header "Content-Type" "text/plain; charset=utf-8")))}]
    ["/api"
     ["/delicts" {:get get-delicts}]
+    ["/neighborhoods" {:get requests/get-neighborhoods}]
+    ["/routes" {:get requests/get-routes}]
     ["/requests" {:get requests/get-requests
                   :post {;:parameters {:body :requests.new/request}
                          :handler requests/create-request}}]
     ["/requests/{request/id}" {:parameters {:path (s/keys :req [:request/id])}
                                :get requests/get-request
                                :put requests/update-request}]
+    ["/requests/complaints/all" {:get requests/get-complaints}]
     ["/requests/{request/id}/superscriptions/{superscription/id}"
      {:delete requests/delete-request-superscription}]
     ["/requests/{request/id}/entities/{entity/id}/superscriptions/{superscription/id}"

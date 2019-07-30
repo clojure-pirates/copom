@@ -37,8 +37,3 @@
            (constantly (error-page {:status 405, :title "405 - Not allowed"}))
            :not-acceptable
            (constantly (error-page {:status 406, :title "406 - Not acceptable"}))})))))
-
-(comment
-  (#'app
-    {:request-method :post
-     :uri "/api/requests"}))

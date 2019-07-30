@@ -13,6 +13,16 @@
 
 (def default-db {})
 
+(rf/reg-event-db
+ :modal
+ (fn [db [_ comp]]
+   (assoc db :modal comp)))
+
+(rf/reg-event-db
+ :remove-modal
+ (fn [db _]
+   (assoc db :modal nil)))
+
 (defn navigate! [uri]
   (set! js/location uri))                         
 

@@ -19,10 +19,10 @@
   (-> date (.split "T") first
       (str "T" time ".000")))
 
-
 (defn request-coercions [m]
   (-> m
       (update :request/delicts #(->> % (filter (fn [[k v]] v)) (map (fn [[k v]] k))))
+      (update :request/complaint #(:value %))
       (assoc :request/event-timestamp (event-timestamp (:request/date m) (:request/time m)))
       (dissoc :request/date :request/time)))
   
@@ -58,7 +58,8 @@
     "."))
 
 (defn edit-mode [req]
-  (let [;; :request/requester, :request/suspect, :request/witness, :request/victim
+  (let [;; :request/requester, :request/suspect, :request/witness, 
+        ;; :request/victim
         req-entities
         (reduce (fn [m {{r :request-role/role} :entity/role :as e}]
                   (assoc m (keyword "request" r) e))
@@ -70,9 +71,11 @@
         [d t] (when-let [s (:request/event-timestamp req)]
                 (clojure.string/split s #"T"))
         req-datetime #:request{:date d :time t}]
-    (merge (assoc req :request/delicts req-delicts)
-           req-datetime
-           req-entities)))
+    (-> req
+        (assoc :request/delicts req-delicts)
+        (merge req-datetime
+               req-entities))))
+           
 
 ;; -------------------------
 ;; Handlers
@@ -197,13 +200,14 @@
 (rf/reg-sub 
   :requests/priority-score
   (fn [db [_ path]]
-    (let [delicts (:delicts/all db)
-          checked (get-in db (conj path :request/delicts))]
-      (->> checked
-           (filter (fn [[id bool]] bool))
-           (reduce (fn [acc [id bool]] 
-                     (+ acc (some (fn [d] 
-                                    (and (= id (:delict/id d)) 
-                                         (:delict/weight d)))
-                                  delicts)))
-                   0)))))
+    (let [delicts (:delicts/all db)]
+          ;checked (get-in db (conj path :request/delicts))]
+      (fn [checked]
+        (->> checked
+             (filter (fn [[id bool]] bool))
+             (reduce (fn [acc [id bool]] 
+                       (+ acc (some (fn [d] 
+                                      (and (= id (:delict/id d)) 
+                                           (:delict/weight d)))
+                                    delicts)))
+                     0))))))
