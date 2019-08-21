@@ -64,9 +64,10 @@
   [name]
   (migrations/create name (select-keys env [:database-url])))
 
+(defn reset [] (refresh))
 
 (comment
   (start)
-  (create-migration "add-entity-request-role-table")
+  (create-migration "add-entity-superscription-table")
   (reset-db)
   (migrate))

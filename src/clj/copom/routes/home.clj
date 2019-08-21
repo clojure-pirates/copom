@@ -32,8 +32,13 @@
                         (response/header "Content-Type" "text/plain; charset=utf-8")))}]
    ["/api"
     ["/delicts" {:get get-delicts}]
-    ["/neighborhoods" {:get requests/get-neighborhoods}]
-    ["/routes" {:get requests/get-routes}]
+    ["/entities" {:post requests/create-entity}]
+    ["/entities/names" {:get requests/get-names}]
+    ["/entities/phones" {:get requests/get-phones}]
+    ["/neighborhoods" {:get requests/get-neighborhoods
+                       :post requests/create-neighborhood}]
+    ["/routes" {:get requests/get-routes
+                :post requests/create-route}]
     ["/requests" {:get requests/get-requests
                   :post {;:parameters {:body :requests.new/request}
                          :handler requests/create-request}}]

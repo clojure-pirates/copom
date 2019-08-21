@@ -1,6 +1,7 @@
 (ns copom.db.seeds
   (:require
     [user :as u]
+    [clojure.string :as string]
     [copom.db.core :as db]
     [copom.db.queries :as q]
     [copom.db.queries.common :as c]
@@ -23,7 +24,7 @@
                "uso/porte de drogas" 2}]
     (doseq [[d w] items]
       (c/create! {:table "delict"
-                  :params {:name d
+                  :params {:name (string/upper-case d)
                            :weight w}}))))
 
 (defn create-request-roles! []

@@ -34,7 +34,7 @@ body {
 }
 
 .modal-dialog {
-  z-index: 100 !important;
+  z-index: 9999 !important;
   margin: auto;
   position: absolute !important;
   top: 150px;
@@ -43,5 +43,6 @@ body {
 }
 
 .modal-backdrop {
-  z-index: 1 !important;
+  z-index: 101 !important;
+  color: blue;
 }

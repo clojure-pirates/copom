@@ -5,18 +5,6 @@
    [reagent.core :as r]
    [re-frame.core :as rf]))
 
-; Setting default value/checked: the idiomatic way of doing this is 
-; setting the default value of the :name path to be the one you want
-; to be the default.
-
-(defonce app-state (r/atom {}))
-
-(defn set-doc! [comp-name doc fields]
-  (when (seq fields)
-    (when-not (get @app-state comp-name)
-      (swap! app-state comp-name true)
-      (swap! doc merge fields))))
-
 (defn make-vec [x]
   (if (coll? x) x [x]))
 
@@ -89,6 +77,11 @@
 (defn value-attr [value]
   (or value ""))
 
+(defn maybe-set-default-value! [{:keys [doc name default-value]}]
+  (when (and (nil? (get-stored-val @doc name))
+             default-value)
+    (set-val! doc name default-value)))
+
 ; -----------------------------------------------------------------------------
 ; Input Components
 ; -----------------------------------------------------------------------------
@@ -102,10 +95,8 @@
         edited-attrs
         (merge {:on-change (on-change-set! doc name target-value)}
                (clean-attrs attrs))]
-    (when (and (nil? (get-stored-val @doc name))
-               default-value)
-      (set-val! doc name default-value))
     (fn []
+      (maybe-set-default-value! attrs)
       [:input (assoc edited-attrs 
                 :value (value-attr (get-stored-val @doc name)))])))
 
@@ -116,10 +107,8 @@
         (merge {:on-change (on-change-set! doc name 
                                            (comp parse-number target-value))}
                (clean-attrs attrs))]
-    (when (and (nil? (get-stored-val @doc name))
-               default-value)
-      (set-val! doc name default-value))
     (fn []
+      (maybe-set-default-value! attrs)
       [:input (assoc edited-attrs
                 :value (value-attr (get-stored-val @doc name)))])))
 
@@ -130,10 +119,8 @@
         edited-attrs
         (merge {:on-change (on-change-set! doc name target-value)}
                (clean-attrs attrs))]
-    (when (and (nil? (get-stored-val @doc name))
-               default-value)
-      (set-val! doc name default-value))
     (fn []
+      (maybe-set-default-value! attrs)
       [:textarea (assoc edited-attrs
                    :value (value-attr (get-stored-val @doc name)))])))
                  
@@ -145,10 +132,10 @@
         (merge {:on-change (on-change-set! doc name
                                            (comp read-string* target-value))}
                (clean-attrs attrs))]
-    (when (and (nil? (get-stored-val @doc name))
-               checked?)
-      (set-val! doc name value))
     (fn []
+      (when (and (nil? (get-stored-val @doc name))
+                 checked?)
+        (set-val! doc name value))
       [:input (assoc edited-attrs
                 :checked (= value (get-stored-val @doc name)))])))
      
@@ -159,13 +146,13 @@
         edited-attrs
         (merge {:on-change (on-change-update! doc name not)}
                (clean-attrs attrs))]
-    (cond (and (nil? (get-stored-val @doc name))
-               checked?)
-          (set-val! doc name true)
-          
-          (nil? (get-stored-val @doc name))
-          (set-val! doc name false))
     (fn []
+      (cond (and (nil? (get-stored-val @doc name))
+                 checked?)
+            (set-val! doc name true)
+            
+            (nil? (get-stored-val @doc name))
+            (set-val! doc name false))
       [:input (assoc edited-attrs
                 :checked (boolean (get-stored-val @doc name)))])))
 
@@ -213,10 +200,10 @@
                 ;; format is submitted.
                 :pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}"}
                (clean-attrs attrs))]
-    (when (and (nil? (get-stored-val @doc name))
-               default-value)
-      (set-val! doc name (save-fn default-value)))
     (fn []
+      (when (and (nil? (get-stored-val @doc name))
+                 default-value)
+        (set-val! doc name (save-fn default-value)))
       [:input (assoc edited-attrs
                 :value (value-fn (get-stored-val @doc name)))])))
 
@@ -233,12 +220,12 @@
         edited-attrs
         (merge {:on-change (on-change-fn doc name (comp read-string* target-value))}
                (clean-attrs attrs))]
-    (when (and (not (get-stored-val @doc name))
-               default-value)
-      (if multiple
-        ((on-change-update-multiple! doc name default-value) nil)
-        (swap! doc assoc-in (make-vec name) default-value)))
     (fn []
+      (when (and (not (get-stored-val @doc name))
+                 default-value)
+        (if multiple
+          ((on-change-update-multiple! doc name default-value) nil)
+          (swap! doc assoc-in (make-vec name) default-value)))
       (into
         [:select (assoc edited-attrs
                    :value (value-attr (get-stored-val @doc name)))]

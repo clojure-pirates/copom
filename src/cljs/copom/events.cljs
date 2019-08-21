@@ -15,11 +15,13 @@
 
 (rf/reg-event-db
  :modal
- (fn [db [_ comp]]
+ base-interceptors
+ (fn [db [comp]]
    (assoc db :modal comp)))
 
 (rf/reg-event-db
  :remove-modal
+ base-interceptors
  (fn [db _]
    (assoc db :modal nil)))
 

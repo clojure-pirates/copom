@@ -2,7 +2,9 @@
   (:require
     [ajax.core :as ajax]
     [clojure.pprint]
+    [copom.db :refer [app-db]]
     [copom.events.utils :refer [base-interceptors]]
+    [reagent.session :as session]
     [re-frame.core :as rf]))
 
 ;; -------------------------
@@ -22,7 +24,6 @@
 (defn request-coercions [m]
   (-> m
       (update :request/delicts #(->> % (filter (fn [[k v]] v)) (map (fn [[k v]] k))))
-      (update :request/complaint #(:value %))
       (assoc :request/event-timestamp (event-timestamp (:request/date m) (:request/time m)))
       (dissoc :request/date :request/time)))
   
@@ -30,8 +31,8 @@
 (rf/reg-event-db
   :requests/clear-form
   requests-interceptos
-  (fn [reqs _]
-    (assoc reqs :new nil)))
+  (fn [reqs [doc]]
+    (reset! doc nil)))
 
 (def required-request-fields
   #{:request/complaint :request/summary :request/status})
@@ -115,8 +116,23 @@
   (fn [_ [id]]
     (ajax/GET (str "/api/requests/" id)
               {:handler #(let [r (edit-mode %)]
-                           (rf/dispatch [:rff/set [:requests/request] r])
-                           (rf/dispatch [:rff/set [:requests/edit] r]))
+                           (swap! app-db assoc :request r)
+                           (rf/dispatch-sync [:rff/set [:requests/request] r])
+                           (rf/dispatch-sync [:rff/set [:requests/edit] r]))
+               :error-handler #(prn %)
+               :response-format :json
+               :keywords? true})
+    nil))
+
+#_
+(rf/reg-event-fx
+  :requests/load-request
+  base-interceptors
+  (fn [_ [id]]
+    (ajax/GET (str "/api/requests/" id)
+              {:handler #(let [r (edit-mode %)]
+                           (rf/dispatch-sync [:rff/set [:requests/request] r])
+                           (rf/dispatch-sync [:rff/set [:requests/edit] r]))
                :error-handler #(prn %)
                :response-format :json
                :keywords? true})
@@ -164,6 +180,54 @@
                       :error-handler #(prn %)})))
     ;; clear the form
     (assoc-in db path nil)))
+
+(rf/reg-event-fx
+  :neighborhood/create
+  base-interceptors
+  (fn [_ [doc]]
+    (ajax/POST "/api/neighborhoods"
+               {:params @doc
+                :handler #(rf/dispatch [:remove-modal])
+                :error-handler #(prn %)
+                :response-format :json
+                :keywords? true})
+    nil))
+
+(rf/reg-event-fx
+  :route/create
+  base-interceptors
+  (fn [_ [doc]]
+    (ajax/POST "/api/routes"
+               {:params @doc
+                :handler #(rf/dispatch [:remove-modal])
+                :error-handler #(prn %)
+                :response-format :json
+                :keywords? true})
+    nil))
+
+(rf/reg-event-fx
+  :entity/query
+  base-interceptors
+  (fn [_ [query]]
+    (let [{:entity/keys [name phone]} @query
+          col (if name "names" "phones")]
+      (ajax/GET (str "/api/entities/" col)
+                {:params {:query (or name phone)}
+                 :handler #(do (swap! query assoc :items %))
+                 :error-handler #(prn %)
+                 :response-format :json
+                 :keywords? true}))
+    nil))
+
+(rf/reg-event-fx
+  :entity/create
+  base-interceptors
+  (fn [_ [doc]]
+    (ajax/POST "/api/entities"
+               {:params @doc
+                :handler #(rf/dispatch [:remove-modal])
+                :error-handler #(prn %)})
+    nil))
 
 ;; -------------------------
 ;; Subs

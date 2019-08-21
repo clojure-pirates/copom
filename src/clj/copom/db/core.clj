@@ -51,11 +51,12 @@
 
 (defn raw-parser 
   [query]
-  (w/pathom-parser
-    {::sqb/sql-db     *db*
-     ::sqb/run-query  jdbc/query
-     ::sqb/floor-plan w/compiled-schema}
-    query))
+  (->
+    (w/pathom-parser
+      {::sqb/sql-db     *db*
+       ::sqb/run-query  jdbc/query
+       ::sqb/floor-plan w/compiled-schema}
+      query)))
 
 ; NOTE: works only for 1 query
 (defn parser [query]

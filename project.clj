@@ -34,6 +34,7 @@
                  [re-frame "0.10.6"]
                  [reframe-forms "0.1.0-SNAPSHOT"]
                  [reagent "0.8.1"]
+                 [reagent-utils "0.3.3"]
                  [ring-webjars "0.2.0"]
                  [ring/ring-core "1.7.1"]
                  [ring/ring-defaults "0.3.2"]

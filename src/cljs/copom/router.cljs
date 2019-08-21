@@ -1,6 +1,7 @@
 (ns copom.router
   (:require
     [re-frame.core :as rf]
+    [reagent.session :as session]
     [reitit.core :as reitit]))
 
 (defn home-controller []

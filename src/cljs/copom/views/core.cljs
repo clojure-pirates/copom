@@ -48,6 +48,10 @@
    :request #'requests/request-page})
 
 (defn page []
-  [:div
-   [navbar]
-   [(pages @(rf/subscribe [:page]))]])
+  (let [modal (rf/subscribe [:rff/query :modal])]
+    (fn []
+      [:div
+       [navbar]
+       (when-let [m @modal]
+         [m])
+       [(pages @(rf/subscribe [:page]))]])))

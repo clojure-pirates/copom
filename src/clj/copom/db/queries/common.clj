@@ -18,13 +18,14 @@
   (all [m] 
    (q/query [(str "SELECT * FROM " (:table m))]
             (q/default-opts (:table m))))
-  (by-id [m]
-   (let [queryf #(q/query % (q/default-opts (:table m)))]
-     (-> [(str "SELECT * FROM " (:table m) " WHERE id = ?")
-          (get m (q/->qualified-key (:table m) :id))]
+  (by-id [{:keys [table] :as m}]
+   (let [queryf #(q/query % (q/default-opts table))]
+     (-> [(str "SELECT * FROM " table " WHERE id = ?")
+          (or (:id m) (get m (q/->qualified-key table :id)))]
          queryf
          first)))
   (create! [m]
+   ;; return the id (int)
    (-> (q/insert! (:table m) (:params m)) first first last))
   (custom [m]
    (q/query (:query m) (q/default-opts (:table m))))
@@ -39,12 +40,12 @@
           full-query (into [(str base (clojure.string/join " AND " ks))]
                            vs)]
       (custom {:query full-query :table (:table m)})))
-  (get-or-create! [m]
-   (if-let [result1 (seq (get-by m))]
-     (first result1)
+  (get-or-create! [{:keys [table] :as m}]
+   (if-let [result (-> m get-by first)]
+     result
      (let [id (create! m)]
-       (by-id {:table (:table m)
-               (keyword (:table m) "id") id}))))
+       (by-id {:table table
+               :id id}))))
   (update! [m]
    (q/update! (:table m) (:params m) (:where m))))  
 

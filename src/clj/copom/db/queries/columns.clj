@@ -12,7 +12,7 @@
 (def superscription-columns
   [:superscription/id 
    :superscription/num :superscription/complement :superscription/reference
-   :superscription/city :superscription/state])
+   :superscription/city :superscription/state :superscription/created-at])
 
 (def delict-columns
   [:delict/id :delict/name :delict/weight])

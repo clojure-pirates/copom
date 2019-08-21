@@ -45,18 +45,33 @@
             :request-role/by-role :request-role/role
             :request-entity/by-request-id :request-entity/request-id}
    
-   :joins {:superscription/neighborhood [:superscription/id :superscription-neighborhood/superscription_id
-                                         :superscription-neighborhood/neighborhood-id :neighborhood/id]
-           :superscription/route [:superscription/id :superscription-route/superscription_id
-                                  :superscription-route/route-id :route/id]
-           :entity/superscription [:request-entity/id :request-entity-superscription/request-entity-id
-                                   :request-entity-superscription/superscription-id :superscription/id]
-           :entity/role [:request-entity/id :request-entity-role/request-entity-id
-                         :request-entity-role/role-id :request-role/id]
-           :request/superscription [:request/id :request-superscription/request-id
-                                    :request-superscription/superscription-id :superscription/id]
+   :joins {:superscription/neighborhood 
+           [:superscription/id :superscription-neighborhood/superscription_id
+            :superscription-neighborhood/neighborhood-id :neighborhood/id]
+           
+           :superscription/route 
+           [:superscription/id :superscription-route/superscription_id
+            :superscription-route/route-id :route/id]
+           
+           :entity/superscription 
+           [:request-entity/id :request-entity-superscription/request-entity-id,
+            :request-entity-superscription/superscription-id :superscription/id]
+           
+           :entity/superscriptions
+           [:entity/id :entity-superscription/entity-id
+            :entity-superscription/superscription-id :superscription/id]
+            
+           :entity/role 
+           [:request-entity/id :request-entity-role/request-entity-id
+            :request-entity-role/role-id :request-role/id]
+           
+           :request/superscription 
+           [:request/id :request-superscription/request-id
+            :request-superscription/superscription-id :superscription/id]
+           
            :request/delicts [:request/id :request-delict/request-id
                              :request-delict/delict-id :delict/id]
+           
            :request/entities [:request/id :request-entity/request-id
                               :request-entity/entity-id :entity/id]}
    
