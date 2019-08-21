@@ -412,13 +412,26 @@
 
 
 (defn entity-form [{:keys [doc path role opts] :as kwargs}]
-  [:div
-   [entity-core-form kwargs]
-   [:fieldset
-    [:legend "Endereço"]
-    [address-form 
-     {:doc doc :path (conj path :entity/superscription) :opts opts}]] 
-   [entity-docs-form kwargs]])
+  (let [address-path (conj path :entity/superscription)
+        rid (:request/id @doc)
+        eid (get-in @doc (conj path :entity/id))
+        sid (get-in @doc (conj address-path :superscription/id))]
+    [:div
+     [entity-core-form kwargs]
+     [:fieldset
+      [:legend "Endereço" " "
+       (when sid
+         [:span
+           [:button.btn.btn-warning "Alterar"]
+           [:button.btn.btn-danger 
+            {:on-click #(rf/dispatch [:request-entity-superscription/delete
+                                      {:doc doc :path address-path 
+                                       :request/id rid :entity/id eid 
+                                       :superscription/id sid}])}
+            "Excluir"]])]
+      [address-form 
+       {:doc doc :path address-path}]]
+     [entity-docs-form kwargs]]))
 
 (defn request-form [doc path]
   (r/with-let [fields (rf/subscribe [:rff/query path])

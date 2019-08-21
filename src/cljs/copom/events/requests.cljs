@@ -162,6 +162,19 @@
                    :error-handler #(prn %)}))
       nil)))
 
+(rf/reg-event-fx
+  :request-entity-superscription/delete
+  base-interceptors
+  (fn [_ [{doc :doc path :path rid :request/id eid :entity/id 
+           sid :superscription/id}]]
+    ;; Set the entity/superscription to nil
+    (swap! doc assoc-in path nil)
+    (when (and rid eid sid)
+      (ajax/DELETE (str "/api/requests/" rid 
+                        "/entities/" eid 
+                        "/superscriptions/" sid)))
+    nil))
+
 (rf/reg-event-db
   :superscriptions/remove
   base-interceptors
