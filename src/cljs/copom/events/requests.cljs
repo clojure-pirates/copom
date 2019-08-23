@@ -10,6 +10,11 @@
 ;; -------------------------
 ;; Helpers
 
+(def core-superscription-keys
+  [:superscription/num :superscription/complement :superscription/reference
+   :superscription/city :superscription/state])
+  
+
 (def core-request-keys
   [:request/complaint :request/summary :request/event-timestamp 
    :request/status :request/measures])
@@ -20,6 +25,11 @@
 (defn event-timestamp [date time]
   (-> date (.split "T") first
       (str "T" time ".000")))
+
+(defn superscription-coercions [m]
+  (merge (select-keys m core-superscription-keys)
+         {:neighborhood/id (get-in m [:superscription/neighborhood :neighborhood/id])
+          :route/id (get-in m [:superscription/route :route/id])}))
 
 (defn request-coercions [m]
   (-> m
@@ -163,36 +173,38 @@
       nil)))
 
 (rf/reg-event-fx
-  :request-entity-superscription/delete
+  :request.entity.superscription/delete
   base-interceptors
   (fn [_ [{doc :doc path :path rid :request/id eid :entity/id 
-           sid :superscription/id}]]
+           sid :superscription/id :as params}]]
     ;; Set the entity/superscription to nil
     (swap! doc assoc-in path nil)
-    (when (and rid eid sid)
+    (when rid
       (ajax/DELETE (str "/api/requests/" rid 
                         "/entities/" eid 
-                        "/superscriptions/" sid)))
+                        "/superscriptions/" sid)
+                   {:error-handler #(prn %)}))
     nil))
 
-(rf/reg-event-db
-  :superscriptions/remove
+(rf/reg-event-fx
+  :request.entity.superscription/create
   base-interceptors
-  (fn [db [m path]]
-    ;; delete superscription and its db relations
-    (let [{rid :request/id
-           eid :entity/id
-           sid :superscription/id} m
-          uri (cond (and rid eid sid)
-                    (str "/api/requests/" rid "/entities/" eid "/superscriptions/" sid)
-                    (and rid sid)
-                    (str "/api/requests/" rid "/superscriptions/" sid))]
-      (when uri
-        (ajax/DELETE uri
-                     {:params m
-                      :error-handler #(prn %)})))
-    ;; clear the form
-    (assoc-in db path nil)))
+  (fn [_ [{rid :request/id eid :entity/id :keys [doc sup-path]}]]
+    (let [base-uri (str "/entities/" eid "/superscriptions")
+          uri (if rid
+                (str "/api/requests/" rid base-uri)
+                (str "/api" base-uri))]
+      (ajax/POST uri
+                 {:handler #(do (swap! doc assoc-in 
+                                       (conj sup-path :superscription/id) 
+                                       (:superscription/id %)) 
+                                (rf/dispatch [:remove-modal]))
+                  :error-handler #(prn %)
+                  :params (-> (get-in @doc sup-path) superscription-coercions)
+                  :response-format :json
+                  :keywords? true}))
+    nil))
+
 
 (rf/reg-event-fx
   :neighborhood/create

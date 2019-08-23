@@ -110,28 +110,26 @@
       [:span "Logradouro"]
       [:div.form-row.align-items-center
        
-       [:div.col>div.form-row.border
-         [:div.col
-          ;; TODO: typehead
-          (let [path (conj path :superscription/neighborhood)]
-            [:button.btn.btn-default "button"]
-            [comps/input
-             {:type :typehead
-              :name (conj path :neighborhood/name)
-              :class "form-control"
-              :doc doc
-              :disabled disabled?
-              :getter :neighborhood/name
-              :handler #(swap! doc assoc-in (conj path :neighborhood/id)
-                               (:neighborhood/id %))
-              :data-source {:uri "/api/neighborhoods"}
-              :placeholder "Bairro"}])]
-         (when-not disabled?
-           [:div.col
-            [:button.btn.btn-default 
+       [:div.col>div.input-group.border
+        (when-not disabled?
+          [:div.input-group-prepend
+           [:div.input-group-text
+            [:button.btn.btn-sm.btn-default 
              {:on-click #(rf/dispatch [:modal create-neighborhood-modal])}
-             "+"]])]
-        
+             "+"]]])
+        (let [path (conj path :superscription/neighborhood)]
+          [comps/input
+           {:type :typehead
+            :name (conj path :neighborhood/name)
+            :class "form-control"
+            :doc doc
+            :disabled disabled?
+            :getter :neighborhood/name
+            :handler #(swap! doc assoc-in (conj path :neighborhood/id)
+                             (:neighborhood/id %))
+            :data-source {:uri "/api/neighborhoods"}
+            :placeholder "Bairro"}])]
+               
        [:div.col-md-2
         [select {:name (conj path :superscription/route :route/type)
                  :class "form-control"
@@ -142,25 +140,26 @@
            ^{:key r}
            [:option {:value r} r])]]
        
-       [:div.col>div.form-row.border
-         [:div.col
-          ;; TODO: typehead
-          (let [path (conj path :superscription/route)]
-            [comps/input
-             {:type :typehead
-              :class "form-control"
-              :doc doc
-              :disabled disabled?
-              :name (conj path :route/name)
-              :getter :route/name
-              :handler #(swap! doc assoc-in path %)
-              :data-source {:uri "/api/routes"}
-              :placeholder "Logradouro"}])]
-         (when-not disabled?
-           [:div.col
-            [:button.btn.btn-default 
+       [:div.col>div.input-group.border
+        (when-not disabled?
+          [:div.input-group-prepend
+           [:div.input-group-text
+            [:button.btn.btn-sm.btn-default 
              {:on-click #(rf/dispatch [:modal create-route-modal])}
-             "+"]])]
+             "+"]]])
+        [:div
+         ;; TODO: typehead
+         (let [path (conj path :superscription/route)]
+           [comps/input
+            {:type :typehead
+             :class "form-control"
+             :doc doc
+             :disabled disabled?
+             :name (conj path :route/name)
+             :getter :route/name
+             :handler #(swap! doc assoc-in path %)
+             :data-source {:uri "/api/routes"}
+             :placeholder "Logradouro"}])]]
         
        [:div.col
         [input {:type :text
@@ -212,9 +211,21 @@
 
 (declare entity-form entity-core-form entity-docs-form)
 
+
 (defn entity-pick-modal [{:keys [doc entity path role]}]
   (let [;; args for entity form, including a temporary doc.
-        kwargs2 {:doc (r/atom entity) :path [] :role role :opts {:disabled? true}}]
+        kwargs2 {:doc (r/atom entity) :path [] :role role :opts {:disabled? true}}
+        ;; assoc the selected superscription (by its :superscription/id)
+        ;; to :entity/superscription of the main doc.
+        f (fn []
+           (let [d @(:doc kwargs2)
+                 p (conj (:path kwargs2) :entity/superscription)]
+             (->> (:entity/superscriptions entity)
+                  (some #(and (= (:superscription/id %)
+                                 (get-in d p))
+                              %))
+                  (assoc-in d p)
+                  (swap! doc assoc-in path))))]                
     (fn []
       [comps/modal
        {:header [:h3 (:entity/name entity)]
@@ -230,7 +241,7 @@
                         {:type :radio
                          :name (conj (:path kwargs2) :entity/superscription)
                          :doc (:doc kwargs2)
-                         :value s
+                         :value (:superscription/id s)
                          :checked? (when (zero? i) true)}]
                        " Endereço " (inc i)]
                      ;[:legend "Endereço " (inc i)]
@@ -241,7 +252,7 @@
         :footer [:div
                  [:button.btn.btn-success 
                   ;; assoc the vals from the temp doc to the main doc
-                  {:on-click #(do (swap! doc assoc-in path @(:doc kwargs2))
+                  {:on-click #(do (f)
                                   (rf/dispatch [:remove-modal]))}
                   "Selecionar"]
                  [:button.btn.btn-danger 
@@ -411,6 +422,37 @@
                    :name (conj path :entity/mother)}]]]]]])))
 
 
+(defn create-superscription-modal [{:keys [doc ent-path]}]
+  (let [spath (conj ent-path :entity/superscription) 
+        temp-doc (r/atom (-> @doc (get-in spath) (dissoc :superscription/id)))
+        rid (:request/id @doc)
+        sid (get-in @doc (conj spath :superscription/id))
+        eid (get-in @doc (conj ent-path :entity/id))]
+    (fn []
+      [comps/modal
+       {:header [:h3 "Novo endereço"]
+        :body [address-form {:doc temp-doc :path []}]
+        :footer [:div
+                 [:button.btn.btn-success 
+                  {:on-click #(do (swap! doc assoc-in spath @temp-doc)
+                                  (rf/dispatch
+                                    [:request.entity.superscription/delete
+                                      {:doc doc
+                                       :path nil 
+                                       :request/id rid
+                                       :entity/id eid 
+                                       :superscription/id sid}])
+                                  (rf/dispatch 
+                                    [:request.entity.superscription/create
+                                      {:doc doc 
+                                       :sup-path spath
+                                       :request/id rid
+                                       :entity/id eid}]))}
+                  "Criar"]
+                 [:button.btn.btn-danger 
+                  {:on-click #(rf/dispatch [:remove-modal])}
+                  "Cancelar"]]}])))
+
 (defn entity-form [{:keys [doc path role opts] :as kwargs}]
   (let [address-path (conj path :entity/superscription)
         rid (:request/id @doc)
@@ -422,11 +464,18 @@
       [:legend "Endereço" " "
        (when sid
          [:span
-           [:button.btn.btn-warning "Alterar"]
+           [:button.btn.btn-warning 
+            {:on-click #(do
+                          (rf/dispatch [:modal 
+                                        (partial create-superscription-modal 
+                                               {:doc doc :ent-path path})]))}
+            "Alterar"]
            [:button.btn.btn-danger 
-            {:on-click #(rf/dispatch [:request-entity-superscription/delete
-                                      {:doc doc :path address-path 
-                                       :request/id rid :entity/id eid 
+            {:on-click #(rf/dispatch [:request.entity.superscription/delete
+                                      {:doc doc 
+                                       :path address-path 
+                                       :request/id rid 
+                                       :entity/id eid 
                                        :superscription/id sid}])}
             "Excluir"]])]
       [address-form 

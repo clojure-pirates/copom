@@ -24,11 +24,15 @@
                  (conj c/entity-columns
                        {:entity/role c/request-role-columns})}]}]))
  
-(defn get-req-ent [rid eid]
-  (-> [{(list [:request-entity/by-request-id rid]
-              {:filters [:= :request-entity/entity-id eid]})
-        [:request-entity/id]}]
-      db/parser))
+(defn get-reid 
+  "Takes a request/id and entity/id and returns a request-entity/id"
+  [rid eid]
+  (-> (db/parser [{(list [:request-entity/by-request-id rid]
+                         {:filters [:and [:= :request-entity/entity-id 
+                                             eid]]})
+                   [:request-entity/id]}])
+      first :request-entity/id)) 
+
 
 (def req-core-keys 
   [:request/complaint :request/summary :request/event-timestamp
@@ -240,7 +244,7 @@
              :as e1} (req-ents params)]
       (cond eid
             (let [e2 (find-entity eid role)
-                  reid (get-req-ent rid eid)] 
+                  reid (get-reid rid eid)] 
               (when (not= (select-keys e1 c/entity-columns)
                           (select-keys e2 c/entity-columns))
                 (delete-entity! eid)
@@ -294,6 +298,34 @@
   (response/ok
     {:result :ok}))
 
+(defn min-superscription-params? [params]
+  (and (:neighborhood/id params)
+       (:route/id params)
+       (:superscription/city params)
+       (:superscription/state params)))
+
+(defn create-sup! [params]
+  (when (min-superscription-params? params)
+    (let [sup-params (-> params
+                         (dissoc :neighborhood/id :route/id)
+                         m->upper-case)
+          sid (q/create! {:table "superscription" :params sup-params})]
+      (q/create! {:table "superscription_neighborhood"
+                  :params {:superscription-id sid
+                           :neighborhood-id (:neighborhood/id params)}})
+      (q/create! {:table "superscription_route"
+                  :params {:superscription-id sid
+                           :route-id (:route/id params)}})
+      sid)))
+
+(defn create-entity-superscription [{:keys [params path-params]}]
+  (jdbc/with-db-transaction [conn db/*db*]
+   (binding [db/*db* conn]
+     (let [sid (create-sup! params)]
+       (create-ent-sup! (:entity/id path-params) sid)
+       (response/ok 
+         {:superscription/id sid})))))
+
 ; -----------------------------------------------------------------------------
 ; Neighborhood Handlers
 
@@ -342,6 +374,18 @@
          (create-req-ent-relations! request-id entities params)
          (create-req-delicts! request-id (:request/delicts params))
          {:request/id request-id})))))
+
+(defn create-request-entity-superscription [{:keys [path-params params]}]
+  (prn path-params)
+  (prn params)
+  (jdbc/with-db-transaction [conn db/*db*]
+   (binding [db/*db* conn]
+     (let [reid (get-reid (:request/id path-params) (:entity/id path-params))
+           sid (create-sup! params)]
+       (create-ent-sup! (:entity/id path-params) sid)
+       (create-req-ent-sup! reid sid)
+       (response/ok 
+         {:superscription/id sid})))))
               
 ; READ
 (defn get-requests [req]
@@ -375,13 +419,10 @@
   (delete-req-sup! params)
   (response/ok {:result :ok}))
 
+
 (defn delete-request-entity-superscription [{:keys [params]}]
   (let [{rid :request/id, eid :entity/id, sid :superscription/id} params
-        reid (-> (db/parser [{(list [:request-entity/by-request-id rid]
-                                    {:filters [:and [:= :request-entity/entity-id 
-                                                        eid]]})
-                              [:request-entity/id]}])
-                 first :request-entity/id)    
+        reid (get-reid rid eid)
         where ["request_entity_id = ? AND superscription_id = ?" reid sid]]
     ; delete request_entity_superscription, reid, sid
     (q/delete! {:table "request_entity_superscription" :where where}) 

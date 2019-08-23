@@ -32,6 +32,8 @@
                         (response/header "Content-Type" "text/plain; charset=utf-8")))}]
    ["/api"
     ["/delicts" {:get get-delicts}]
+    ["/entities/{entity/id}/superscriptions"
+     {:post requests/create-entity-superscription}]
     ["/entities" {:post requests/create-entity}]
     ["/entities/names" {:get requests/get-names}]
     ["/entities/phones" {:get requests/get-phones}]
@@ -49,5 +51,7 @@
     ["/requests/{request/id}/superscriptions/{superscription/id}"
      {:delete requests/delete-request-superscription}]
     ["/requests/{request/id}/entities/{entity/id}/superscriptions/{superscription/id}"
-     {:delete requests/delete-request-entity-superscription}]]])
+     {:delete requests/delete-request-entity-superscription}]
+    ["/requests/{request/id}/entities/{entity/id}/superscriptions"
+     {:post requests/create-request-entity-superscription}]]])
     
