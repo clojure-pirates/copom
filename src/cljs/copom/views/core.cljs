@@ -1,6 +1,6 @@
 (ns copom.views.core
   (:require
-    [copom.views.requests :as requests]
+    [copom.views.request :as request]
     [markdown.core :refer [md->html]]
     [reagent.core :as r]
     [re-frame.core :as rf]))
@@ -41,11 +41,11 @@
 
 
 (def pages
-  {:home #'requests/dashboard
+  {:home #'request/dashboard
    :about #'about-page
-   :requests #'requests/requests-page
-   :create-request #'requests/create-request-page
-   :request #'requests/request-page})
+   :requests #'request/requests-page
+   :create-request #'request/create-request-page
+   :request #'request/request-page})
 
 (defn page []
   (let [modal (rf/subscribe [:rff/query :modal])]

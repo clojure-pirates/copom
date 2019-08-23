@@ -376,8 +376,6 @@
          {:request/id request-id})))))
 
 (defn create-request-entity-superscription [{:keys [path-params params]}]
-  (prn path-params)
-  (prn params)
   (jdbc/with-db-transaction [conn db/*db*]
    (binding [db/*db* conn]
      (let [reid (get-reid (:request/id path-params) (:entity/id path-params))
@@ -420,8 +418,8 @@
   (response/ok {:result :ok}))
 
 
-(defn delete-request-entity-superscription [{:keys [params]}]
-  (let [{rid :request/id, eid :entity/id, sid :superscription/id} params
+(defn delete-request-entity-superscription [{:keys [path-params]}]
+  (let [{rid :request/id, eid :entity/id, sid :superscription/id} path-params
         reid (get-reid rid eid)
         where ["request_entity_id = ? AND superscription_id = ?" reid sid]]
     ; delete request_entity_superscription, reid, sid
