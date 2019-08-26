@@ -41,7 +41,8 @@
 (def entity-query
   (conj entity-columns
         {:entity/role request-role-columns}
-        {:entity/superscription superscription-query}))
+        {:entity/superscription superscription-query}
+        {:entity/superscriptions superscription-query}))
 
 (def request-query
   (conj request-columns

@@ -170,34 +170,98 @@
                 :name (conj path :superscription/state)
                 :default-value "Mato Grosso"}]]]]]))
 
+(defn superscription-modal 
+  [{:keys [doc path header footer]}]
+  [comps/modal
+   {:header header
+    :body [address-form {:doc doc :path []}]
+    :footer footer}])
 
-(defn create-superscription-modal [{:keys [doc ent-path]}]
-  (let [spath (conj ent-path :entity/superscription) 
-        temp-doc (r/atom (-> @doc (get-in spath) (dissoc :superscription/id)))
-        rid (:request/id @doc)
-        sid (get-in @doc (conj spath :superscription/id))
-        eid (get-in @doc (conj ent-path :entity/id))]
+(defn create-superscription-modal
+  [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
+    :as kwargs}]
+  (let [temp-doc (r/atom (-> (get-in @doc path) (dissoc :superscription/id)))]
     (fn []
-      [comps/modal
-       {:header [:h3 "Novo endereço"]
-        :body [address-form {:doc temp-doc :path []}]
+      [superscription-modal
+       {:doc temp-doc
+        :path path
+        :header [:h3 "Novo Endereço"]
         :footer [:div
                  [:button.btn.btn-success 
-                  {:on-click #(do (swap! doc assoc-in spath @temp-doc)
-                                  (rf/dispatch
-                                    [:request.entity.superscription/delete
-                                      {:doc doc
-                                       :path nil 
-                                       :request/id rid
-                                       :entity/id eid 
-                                       :superscription/id sid}])
-                                  (rf/dispatch 
-                                    [:request.entity.superscription/create
-                                      {:doc doc 
-                                       :sup-path spath
-                                       :request/id rid
-                                       :entity/id eid}]))}
+                  {:on-click
+                   #(do (swap! doc assoc-in path @temp-doc)
+                       (cond (and rid eid)
+                             (rf/dispatch 
+                               [:request.entity.superscription/create kwargs])
+                             eid
+                             (rf/dispatch 
+                               [:entity.superscription/create kwargs])
+                             rid
+                             (rf/dispatch
+                               [:request.superscription/create kwargs])))}
                   "Criar"]
                  [:button.btn.btn-danger 
                   {:on-click #(rf/dispatch [:remove-modal])}
                   "Cancelar"]]}])))
+
+(defn edit-superscription-modal
+  [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
+    :as kwargs}]
+  (let [temp-doc (r/atom (-> (get-in @doc path) (dissoc :superscription/id)))]
+    (fn []
+      [superscription-modal
+       {:doc temp-doc
+        :path path
+        :header [:h3 "Alterar endereço"]
+        :footer [:div
+                 [:button.btn.btn-success 
+                  {:on-click
+                   #(do (swap! doc assoc-in path @temp-doc)
+                       (cond (and rid eid)
+                             (do (rf/dispatch 
+                                   [:request.entity.superscription/delete kwargs])
+                                 (rf/dispatch
+                                   [:request.entity.superscription/create kwargs]))
+                             eid
+                             (rf/dispatch 
+                               [:entity.superscription/create kwargs])
+                             rid
+                             (do (rf/dispatch
+                                   [:request.superscription/delete kwargs])
+                                 (rf/dispatch
+                                   [:request.superscription/create kwargs]))))}
+                         
+                  "Salvar"]
+                 [:button.btn.btn-danger 
+                  {:on-click #(rf/dispatch [:remove-modal])}
+                  "Cancelar"]]}])))
+
+(defn create-superscription-button 
+  [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
+    :as kwargs}]
+  [:button.btn.btn-success 
+   {:on-click #(rf/dispatch 
+                 [:modal (partial create-superscription-modal kwargs)])}
+   "Novo"])
+
+(defn edit-superscription-button 
+  [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
+    :as kwargs}]
+  [:button.btn.btn-success 
+   {:on-click #(rf/dispatch 
+                 [:modal (partial edit-superscription-modal kwargs)])}
+   "Alterar"])
+
+(defn delete-superscription-button 
+  [{rid :request/id eid :entity/id sid :superscription/id 
+    :keys [doc path] :as kwargs}]
+  [:button.btn.btn-danger
+   {:on-click
+    #(do (swap! doc assoc-in path nil)
+        (cond (and rid eid sid)
+              (rf/dispatch [:request.entity.superscription/delete kwargs])
+              (and eid sid)
+              (rf/dispatch [:entity.superscription/delete kwargs])
+              (and rid sid)
+              (rf/dispatch [:request.superscription/delete kwargs])))}
+   "Excluir"])

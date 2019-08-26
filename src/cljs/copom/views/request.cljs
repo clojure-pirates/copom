@@ -6,7 +6,8 @@
     [copom.views.components :as comps :refer 
      [card card-nav checkbox-input form-group radio-input]]
     [copom.views.entity :refer [entity-form-wrapper]]
-    [copom.views.superscription :refer [address-form]]
+    [copom.views.superscription :as sup :refer 
+     [address-form delete-superscription-button]]
     [copom.router :as router]
     [copom.utils :refer [to-iso-date to-time-string]]
     [reagent.core :as r]
@@ -32,96 +33,118 @@
 ;; Create Request Page
 
 (defn request-form [doc path]
-  (r/with-let [delicts (rf/subscribe [:delicts/all])
-               priority-score (rf/subscribe [:requests/priority-score path])]
-    [card-nav
-     [{:nav-title "Fato"
-       :body 
-             [:div
-               ;[comps/pretty-display @doc]
-               [form-group
-                [:span "Natureza"
-                 [:span.text-danger " *obrigatório"]]
-                [comps/input
-                 {:name :request/complaint
-                  :type :typehead
-                  :class "form-control"
-                  :doc doc
-                  :data-source {:uri "/api/requests/complaints/all"}}]]
-               [form-group
-                [:span "Resumo da requisição"
-                 [:span.text-danger " *obrigatório"]]
-                [textarea {:name :request/summary
-                           :doc doc
-                           :class "form-control"}]]
-               [:div.form-group
-                 [:label "Prioridade"
-                  ": " (@priority-score (:request/delicts @doc))]
-                 (for [{:delict/keys [id name weight]} @delicts]
-                   ^{:key id}
-                   [checkbox-input {:name [:request/delicts id]
-                                    :doc doc
-                                    :label (string/capitalize name)}])]
-               [form-group
-                "Data"
-                [input {:type :date
-                        :class "form-control"
-                        :doc doc
-                        :name :request/date
-                        :default-value (to-iso-date (js/Date.))}]]
-               [form-group
-                "Hora"
-                [input {:type :time
-                        :class "form-control"
-                        :doc doc
-                        :name :request/time
-                        :default-value (to-time-string (js/Date.))}]]]}
-      {:nav-title "Endereço do fato"
-       :body [:fieldset
-              [:legend "Endereço"]
-              [address-form {:doc doc :path [:request/superscription]}]]}
-      {:nav-title "Solicitante(s)"
-       ; TODO: (button to add another)]}]]
-       :body [entity-form-wrapper 
-              {:doc doc :path [:request/requester] :role "requester"}]}
-      {:nav-title "Suspeito(s)"
-       ; TODO: (button to add another)]
-       :body [entity-form-wrapper 
-              {:doc doc :path [:request/suspect] :role "suspect"}]}
-      {:nav-title "Testemunha(s)"
-       ; TODO: (button to add another)]
-       :body [entity-form-wrapper 
-              {:doc doc :path [:request/witness] :role "witness"}]}
-      {:nav-title "Vítima(s)"
-       ; TODO: (button to add another)]
-       :body [entity-form-wrapper 
-              {:doc doc :path [:request/victim] :role "victim"}]}
-      {:nav-title "Providências"
-       :body [:div
-              [form-group
-                "Providências"
-                [textarea {:name :request/measures
-                           :class "form-control"
-                           :doc doc}]
-               [form-group
-                 [:span "Status"
-                  [:span.text-danger " *obrigatório"]]
-                 [radio-input {:name :request/status
-                               :class "form-check-input"
+  (let [delicts (rf/subscribe [:delicts/all])
+        priority-score (rf/subscribe [:requests/priority-score path])
+        superscription-path [:request/superscription]]
+    (fn []
+      (let [sid (get-in @doc (conj superscription-path :superscription/id))]
+        [card-nav
+         [{:nav-title "Fato"
+           :body 
+                 [:div
+                   ;[comps/pretty-display @doc]
+                   [form-group
+                    [:span "Natureza"
+                     [:span.text-danger " *obrigatório"]]
+                    [comps/input
+                     {:name :request/complaint
+                      :type :typehead
+                      :class "form-control"
+                      :doc doc
+                      :data-source {:uri "/api/requests/complaints/all"}}]]
+                   [form-group
+                    [:span "Resumo da requisição"
+                     [:span.text-danger " *obrigatório"]]
+                    [textarea {:name :request/summary
                                :doc doc
-                               :value "pending"
-                               :label "Em aberto"
-                               :checked? (when (-> @doc :request/status nil?) true)}]
-                 [radio-input {:name :request/status
-                               :class "form-check-input"
-                               :doc doc
-                               :value "dispatched"
-                               :label "Despachado"}]
-                 [radio-input {:name :request/status
-                               :class "form-check-input"
-                               :doc doc
-                               :value "done"
-                               :label "Finalizado"}]]]]}]]))      
+                               :class "form-control"}]]
+                   [:div.form-group
+                     [:label "Prioridade"
+                      ": " (@priority-score (:request/delicts @doc))]
+                     (for [{:delict/keys [id name weight]} @delicts]
+                       ^{:key id}
+                       [checkbox-input {:name [:request/delicts id]
+                                        :doc doc
+                                        :label (string/capitalize name)}])]
+                   [form-group
+                    "Data"
+                    [input {:type :date
+                            :class "form-control"
+                            :doc doc
+                            :name :request/date
+                            :default-value (to-iso-date (js/Date.))}]]
+                   [form-group
+                    "Hora"
+                    [input {:type :time
+                            :class "form-control"
+                            :doc doc
+                            :name :request/time
+                            :default-value (to-time-string (js/Date.))}]]]}
+          {:nav-title "Endereço do fato"
+           :body [:fieldset
+                  [:legend "Endereço" " "
+                   (when-not sid
+                     [:span
+                       [sup/create-superscription-button
+                        {:doc doc
+                         :path superscription-path
+                         :request/id (:request/id @doc)}]])
+                   (when sid
+                     [:span
+                       [sup/edit-superscription-button
+                        {:doc doc
+                         :path superscription-path
+                         :request/id (:request/id @doc)
+                         :superscription/id sid}] 
+                       [delete-superscription-button
+                        {:doc doc
+                         :path superscription-path
+                         :request/id (:request/id @doc)
+                         :superscription/id sid}]])]
+                  (when sid
+                    [address-form {:doc doc :path [:request/superscription]}])]}
+          {:nav-title "Solicitante(s)"
+           ; TODO: (button to add another)]}]]
+           :body [entity-form-wrapper 
+                  {:doc doc :path [:request/requester] :role "requester"}]}
+          {:nav-title "Suspeito(s)"
+           ; TODO: (button to add another)]
+           :body [entity-form-wrapper 
+                  {:doc doc :path [:request/suspect] :role "suspect"}]}
+          {:nav-title "Testemunha(s)"
+           ; TODO: (button to add another)]
+           :body [entity-form-wrapper 
+                  {:doc doc :path [:request/witness] :role "witness"}]}
+          {:nav-title "Vítima(s)"
+           ; TODO: (button to add another)]
+           :body [entity-form-wrapper 
+                  {:doc doc :path [:request/victim] :role "victim"}]}
+          {:nav-title "Providências"
+           :body [:div
+                  [form-group
+                    "Providências"
+                    [textarea {:name :request/measures
+                               :class "form-control"
+                               :doc doc}]
+                   [form-group
+                     [:span "Status"
+                      [:span.text-danger " *obrigatório"]]
+                     [radio-input {:name :request/status
+                                   :class "form-check-input"
+                                   :doc doc
+                                   :value "pending"
+                                   :label "Em aberto"
+                                   :checked? (when (-> @doc :request/status nil?) true)}]
+                     [radio-input {:name :request/status
+                                   :class "form-check-input"
+                                   :doc doc
+                                   :value "dispatched"
+                                   :label "Despachado"}]
+                     [radio-input {:name :request/status
+                                   :class "form-check-input"
+                                   :doc doc
+                                   :value "done"
+                                   :label "Finalizado"}]]]]}]]))))      
 
 (defn create-request-page []
   (r/with-let [doc (r/cursor app-db [:request])

@@ -183,7 +183,15 @@
   (when-let [sid (create-address! sup-params)]
     (q/create! {:table "request_superscription"
                 :params {:request-id rid
-                         :superscription-id sid}})))
+                         :superscription-id sid}})
+    sid))
+
+(defn create-request-superscription! [rid sparams]
+  (when-let [sid (create-sup! sparams)]
+    (q/create! {:table "request_superscription"
+                :params {:request-id rid
+                         :superscription-id sid}})
+    sid))
 
 (defn create-ent-sup! [eid sid]
   (q/create! {:table "entity_superscription"
@@ -326,6 +334,12 @@
        (response/ok 
          {:superscription/id sid})))))
 
+(defn delete-entity-superscription 
+  [{:keys [path-params]}]
+  (let [{eid :entity/id sid :superscription/id} path-params]
+    (q/delete! {:table "entity_superscription"
+                :where ["entity_id = ? AND superscription_id = ?" eid sid]})))
+
 ; -----------------------------------------------------------------------------
 ; Neighborhood Handlers
 
@@ -384,7 +398,16 @@
        (create-req-ent-sup! reid sid)
        (response/ok 
          {:superscription/id sid})))))
-              
+
+(defn create-request-superscription [{:keys [path-params params]}]
+  (prn path-params)
+  (clojure.pprint/pprint params)
+  (jdbc/with-db-transaction [conn db/*db*]
+   (binding [db/*db* conn]
+     (response/ok
+       {:superscription/id
+        (create-request-superscription! (:request/id path-params) params)}))))
+       
 ; READ
 (defn get-requests [req]
   (response/ok
@@ -413,8 +436,8 @@
 ; DELETE
 (defn delete-request [req])
 
-(defn delete-request-superscription [{:keys [params]}]
-  (delete-req-sup! params)
+(defn delete-request-superscription [{:keys [path-params]}]
+  (delete-req-sup! path-params)
   (response/ok {:result :ok}))
 
 
@@ -430,6 +453,9 @@
   (db/parser [{:entities/all
                (conj c/entity-columns
                      {:entity/superscriptions c/superscription-query})}])
+  
+  (db/parser [{:superscriptions/all
+               c/superscription-query}])
   
   (db/parser [{:requests/all
                [:request/id

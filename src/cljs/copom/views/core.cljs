@@ -48,7 +48,7 @@
    :request #'request/request-page})
 
 (defn page []
-  (let [modal (rf/subscribe [:rff/query :modal])]
+  (let [modal (rf/subscribe [:modal])]
     (fn []
       [:div
        [navbar]

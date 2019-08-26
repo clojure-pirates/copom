@@ -2,8 +2,8 @@
   (:require
     [copom.forms :as rff :refer [input select]]
     [copom.views.components :as comps :refer [form-group]]
-    [copom.views.superscription :refer 
-     [address-form create-superscription-modal]]
+    [copom.views.superscription :as sup :refer 
+     [address-form]]
     [reagent.core :as r]
     [re-frame.core :as rf]))
     
@@ -162,24 +162,36 @@
      [entity-core-form kwargs]
      [:fieldset
       [:legend "Endereço" " "
+       (when-not sid
+         [:span
+          [:button.btn.btn-primary 
+           {:on-click #(rf/dispatch 
+                         [:modal (partial entity-pick-modal
+                                   (-> (select-keys kwargs [:doc :path :role])
+                                       (assoc :entity (get-in @doc path))))])} 
+           "Selecionar"]
+          [sup/create-superscription-button
+           {:doc doc
+            :path (conj path :entity/superscription)
+            :request/id rid
+            :entity/id eid}]])
        (when sid
          [:span
-           [:button.btn.btn-warning 
-            {:on-click #(do
-                          (rf/dispatch [:modal 
-                                        (partial create-superscription-modal 
-                                               {:doc doc :ent-path path})]))}
-            "Alterar"]
-           [:button.btn.btn-danger 
-            {:on-click #(rf/dispatch [:request.entity.superscription/delete
-                                      {:doc doc 
-                                       :path address-path 
-                                       :request/id rid 
-                                       :entity/id eid 
-                                       :superscription/id sid}])}
-            "Excluir"]])]
-      [address-form 
-       {:doc doc :path address-path}]]
+           [sup/edit-superscription-button
+            {:doc doc
+             :path (conj path :entity/superscription)
+             :request/id rid
+             :entity/id eid
+             :superscription/id sid}] 
+           [sup/delete-superscription-button
+            {:doc doc 
+             :path address-path 
+             :request/id rid 
+             :entity/id eid 
+             :superscription/id sid}]])]
+      (when sid
+        [address-form 
+         {:doc doc :path address-path}])]
      [entity-docs-form kwargs]]))
 
 (defn entity-pick-modal [{:keys [doc entity path role]}]

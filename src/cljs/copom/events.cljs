@@ -17,13 +17,19 @@
  :modal
  base-interceptors
  (fn [db [comp]]
-   (assoc db :modal comp)))
+   (let [modal-stack (:modal db)]
+     (if (seq modal-stack)
+       (update db :modal conj comp)
+       (assoc db :modal [comp])))))
 
 (rf/reg-event-db
  :remove-modal
  base-interceptors
  (fn [db _]
-   (assoc db :modal nil)))
+   (let [modal-stack (:modal db)]
+     (if (seq modal-stack)
+       (update db :modal pop)
+       (assoc db :modal [])))))
 
 (defn navigate! [uri]
   (set! js/location uri))                         
@@ -92,6 +98,13 @@
     (assoc db :common/error error)))
 
 ;;subscriptions
+
+(rf/reg-sub
+  :modal
+  (fn [db _]
+    (let [modal-stack (:modal db)]
+      (when (seq modal-stack)
+        (peek modal-stack)))))
 
 (rf/reg-sub
   :route

@@ -179,7 +179,7 @@
            sid :superscription/id :as params}]]
     ;; Set the entity/superscription to nil
     (swap! doc assoc-in path nil)
-    (when rid
+    (when (and rid eid sid)
       (ajax/DELETE (str "/api/requests/" rid 
                         "/entities/" eid 
                         "/superscriptions/" sid)
@@ -187,22 +187,78 @@
     nil))
 
 (rf/reg-event-fx
+  :request.superscription/delete
+  base-interceptors
+  (fn [_ [{rid :request/id sid :superscription/id}]]
+    (ajax/DELETE (str "/api/requests/" rid
+                      "/superscriptions/" sid)
+                 {:error-handler #(prn %)})
+    nil))
+
+(rf/reg-event-fx
+  :entity.superscription/delete
+  base-interceptors
+  (fn [_ [{doc :doc path :path eid :entity/id 
+           sid :superscription/id :as params}]]
+    ;; Set the entity/superscription to nil
+    (swap! doc assoc-in path nil)
+    (ajax/DELETE (str "/api/entities/" eid 
+                      "/superscriptions/" sid)
+                 {:error-handler #(prn %)})
+    nil))
+
+; - Creates superscription.
+; - Assocs the :superscription/id returned to the doc.
+(defn create-superscription! [{:keys [doc path uri]}]
+  (ajax/POST uri
+             {:handler #(do (swap! doc assoc-in 
+                                   (conj path :superscription/id) 
+                                   (:superscription/id %)) 
+                            (rf/dispatch [:remove-modal]))
+              :error-handler #(prn %)
+              :params (-> (get-in @doc path) superscription-coercions)
+              :response-format :json
+              :keywords? true}))
+
+(rf/reg-event-fx
   :request.entity.superscription/create
   base-interceptors
-  (fn [_ [{rid :request/id eid :entity/id :keys [doc sup-path]}]]
-    (let [base-uri (str "/entities/" eid "/superscriptions")
-          uri (if rid
-                (str "/api/requests/" rid base-uri)
-                (str "/api" base-uri))]
-      (ajax/POST uri
-                 {:handler #(do (swap! doc assoc-in 
-                                       (conj sup-path :superscription/id) 
-                                       (:superscription/id %)) 
-                                (rf/dispatch [:remove-modal]))
-                  :error-handler #(prn %)
-                  :params (-> (get-in @doc sup-path) superscription-coercions)
-                  :response-format :json
-                  :keywords? true}))
+  (fn [_ [{rid :request/id :keys [doc path]}]]
+    (create-superscription!
+      {:uri (str "/api/requests/" rid "/superscriptions")
+       :doc doc 
+       :path path})
+    nil))
+
+(rf/reg-event-fx
+  :request.entity.superscription/create
+  base-interceptors
+  (fn [_ [{rid :request/id eid :entity/id :keys [doc path]}]]
+    (create-superscription!
+      {:uri (str "/api/requests/" rid
+                 "/entities/" eid "/superscriptions")
+       :doc doc 
+       :path path})
+    nil))
+
+(rf/reg-event-fx
+  :entity.superscription/create
+  base-interceptors
+  (fn [_ [{eid :entity/id :keys [doc path]}]]
+    (create-superscription!
+      {:uri (str "/api/entities/" eid "/superscriptions")
+       :doc doc 
+       :path path})
+    nil))
+
+(rf/reg-event-fx
+  :request.superscription/create
+  base-interceptors
+  (fn [_ [{rid :request/id :keys [doc path]}]]
+    (create-superscription!
+      {:uri (str "/api/requests/" rid "/superscriptions")
+       :doc doc 
+       :path path})
     nil))
 
 

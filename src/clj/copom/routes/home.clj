@@ -37,6 +37,8 @@
     ["/entities" {:post requests/create-entity}]
     ["/entities/names" {:get requests/get-names}]
     ["/entities/phones" {:get requests/get-phones}]
+    ["/entities/{entity/id}/superscriptions/{superscription/id}"
+     {:delete requests/delete-entity-superscription}]
     ["/neighborhoods" {:get requests/get-neighborhoods
                        :post requests/create-neighborhood}]
     ["/routes" {:get requests/get-routes
@@ -48,6 +50,8 @@
                                :get requests/get-request
                                :put requests/update-request}]
     ["/requests/complaints/all" {:get requests/get-complaints}]
+    ["/requests/{request/id}/superscriptions"
+     {:post requests/create-request-superscription}]
     ["/requests/{request/id}/superscriptions/{superscription/id}"
      {:delete requests/delete-request-superscription}]
     ["/requests/{request/id}/entities/{entity/id}/superscriptions/{superscription/id}"
