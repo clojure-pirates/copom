@@ -172,14 +172,14 @@
            "Selecionar"]
           [sup/create-superscription-button
            {:doc doc
-            :path (conj path :entity/superscription)
+            :path address-path
             :request/id rid
             :entity/id eid}]])
        (when sid
          [:span
            [sup/edit-superscription-button
             {:doc doc
-             :path (conj path :entity/superscription)
+             :path address-path
              :request/id rid
              :entity/id eid
              :superscription/id sid}] 

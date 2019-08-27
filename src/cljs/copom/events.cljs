@@ -1,7 +1,8 @@
 (ns copom.events
   (:require
     [copom.router :as router]
-    copom.events.requests
+    copom.events.request
+    copom.events.superscription
     [copom.events.utils :refer [base-interceptors]]
     [re-frame.core :as rf]
     [reframe-forms.events]
