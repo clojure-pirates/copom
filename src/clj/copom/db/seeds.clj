@@ -5,7 +5,9 @@
     [copom.db.core :as db]
     [copom.db.queries :as q]
     [copom.db.queries.common :as c]
-    [copom.routes.requests :as requests]))
+    [copom.routes.entity :as ent]
+    [copom.routes.requests :as req]
+    [copom.routes.superscription :as sup]))
 
 (defn create-admin! []
   (let [params {:first-name "admin" 
@@ -34,7 +36,7 @@
                {:request-role/role "victim"}]]
     (doseq [r roles]
       (c/create! {:table "request_role"
-                  :params r}))))
+                  :params r}))))  
 
 (defn create-requests! []
   (let [delicts (->> (c/all {:table "delict"})
@@ -42,18 +44,9 @@
                      (map :delict/id))
         ;; minimum entity params, excluding the superscription.
         requester #:entity{:name "Efraim Augusto"
-                           :phone "66999381813"
-                           :role "requester"}
-        ;; full superscription params
-        victim-address #:superscription{:num "123"
-                                        :complement "Ap. 1"
-                                        :reference "Ao lado do Bar X"
-                                        :city "Guarantã do Norte"
-                                        :state "Mato Grosso"
-                                        :route #:route{:type "Rua"
-                                                       :name "2"}
-                                        :neighborhood #:neighborhood{:name "Jardim Vitória"}}  
-        ;; full entity params
+                           :phone "66999381813"}
+        ; Create entity
+        requester-id (-> {:params requester} ent/create-entity :body :entity/id)
         victim #:entity{:name "John Doe"
                         :phone "190"
                         :role "victim"
@@ -61,29 +54,57 @@
                         :doc-issuer "República Federativa do Brasil"
                         :doc-number "xxx.xxx.xxx-xx"
                         :father "John Doe Senior"
-                        :mother "Mary Doe"
-                        :superscription victim-address}
+                        :mother "Mary Doe"}
+        ;; Create entity
+        vid (-> {:params victim} ent/create-entity :body :entity/id)
+        victim-address #:superscription{:num "123"
+                                        :complement "Ap. 1"
+                                        :reference "Ao lado do Bar X"
+                                        :city "Guarantã do Norte"
+                                        :state "Mato Grosso"
+                                        :route/id (sup/create-route!
+                                                    #:route{:type "Rua"
+                                                            :name "2"})
+                                        :neighborhood/id 
+                                        (sup/create-neighborhood!
+                                         {:neighborhood/name "Jardim Vitória"})}  
+        ;; Create superscription; create entity-superscription
+        victim-sid (-> {:params victim-address
+                        :path-params {:entity/id vid}}
+                       ent/create-entity-superscription
+                       :body
+                       :superscription/id)
         ;; minimum superscription params
-        req-address #:superscription{:neighborhood #:neighborhood{:name "Centro"}
-                                     :route #:route{:type "Rua"
-                                                    :name "1"}
+        req-address #:superscription{:neighborhood/id 
+                                     (sup/create-neighborhood! 
+                                       #:neighborhood{:name "Centro"})
+                                     :route/id 
+                                     (sup/create-route!
+                                       #:route{:type "Rua"
+                                               :name "1"})
                                      :city "Guarantã do Norte"
                                      :state "Mato Grosso"}
+        ; Create superscription
+        rsid (sup/create-sup! req-address)
         req #:request{:complaint "test"
                       :summary "test request with an entity, delicts, and an address"
                       :status "pending"
                       :delicts delicts
-                      :superscription req-address
-                      :requester requester
-                      :victim victim}]
-    (requests/create-request {:params req})))
+                      :superscription {:superscription/id rsid}
+                      :requester {:entity/role "requester"
+                                  :entity/id requester-id}
+                      :victim {:entity/role "victim"
+                               :entity/id vid
+                               :entity/superscription 
+                               {:superscription/id victim-sid}}}]
+    (req/create-request {:params req})))
 
 (defn reset-db! []
   (u/reset-db)
   (create-admin!)
   (create-delicts!)
   (create-request-roles!)
-  (create-requests!))
+  (create-requests!)) 
 
 (comment
   

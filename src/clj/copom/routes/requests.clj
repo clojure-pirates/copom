@@ -25,8 +25,10 @@
 
 (defn req-ents [params]
   (let [ks [:request/requester :request/suspect 
-            :request/witness :request/victim]]
-    ((apply juxt ks) params)))
+            :request/witness :request/victim]
+        f (apply juxt ks)]
+    (->> (f params)
+         (remove nil?))))
             
 ;;; Entity
 
@@ -123,7 +125,7 @@
      (let [rid (create-request! params)]
        (create-req-sup! rid (get-in params [:request/superscription 
                                             :superscription/id]))
-       (create-req-ent-relations! rid (req-ents params) params)
+       (create-req-ent-relations! rid (req-ents params))
        (create-req-delicts! rid (:request/delicts params))
        (response/ok
         {:request/id rid})))))

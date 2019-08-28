@@ -15,6 +15,15 @@
        (:superscription/city params)
        (:superscription/state params)))
 
+(defn create-route! [params]
+  (q/create! {:table "route"
+              :params (m->upper-case params)}))
+
+
+(defn create-neighborhood! [params]
+  (q/create! {:table "neighborhood"
+              :params (m->upper-case params)}))
+
 (defn create-sup! [params]
   (when (min-superscription-params? params)
     (let [sup-params (-> params
@@ -42,8 +51,7 @@
         c/neighborhood-columns}])))
 
 (defn create-neighborhood [{:keys [params]}]
-  (q/create! {:table "neighborhood"
-              :params (m->upper-case params)})
+  (create-neighborhood! params)
   (response/ok {:result :ok}))
 
 ; -----------------------------------------------------------------------------
@@ -58,6 +66,5 @@
         c/route-columns}])))
 
 (defn create-route [{:keys [params]}]
-  (q/create! {:table "route"
-              :params (m->upper-case params)})
+  (create-route! params)
   (response/ok {:result :ok}))
