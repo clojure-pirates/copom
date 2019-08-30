@@ -8,32 +8,28 @@
 ;; -------------------------
 ;; Helpers
 
-(def core-request-keys
-  [:request/complaint :request/summary :request/event-timestamp 
-   :request/status :request/measures])
-
 (def requests-interceptos 
   (conj base-interceptors (rf/path :requests)))
 
 (defn event-timestamp [date time]
-  (-> date (.split "T") first
-      (str "T" time ".000")))
+  (str (-> date (.split "T") first) " "
+       time))
 
 (defn request-coercions [m]
   (-> m
+      (dissoc :request/date :request/time)
       (update :request/delicts #(->> % (filter (fn [[k v]] v)) (map (fn [[k v]] k))))
-      (assoc :request/event-timestamp (event-timestamp (:request/date m) (:request/time m)))
-      (dissoc :request/date :request/time)))
+      (assoc :request/event-timestamp (event-timestamp (:request/date m) (:request/time m)))))
   
 
 (rf/reg-event-db
   :requests/clear-form
   requests-interceptos
-  (fn [reqs [doc]]
+  (fn [_ [doc]]
     (reset! doc nil)))
 
 (def required-request-fields
-  #{:request/complaint :request/summary :request/status})
+  #{:request/complaint :request/status})
 
 (def field-translation
   {:request/complaint "natureza"
@@ -41,8 +37,8 @@
    :request/status "status"})
 
 (defn min-request-params? [params]
-  (let [[complaint summary status] ((apply juxt required-request-fields) params)]
-    (and complaint summary status)))
+  (let [[complaint status] ((apply juxt required-request-fields) params)]
+    (and complaint status)))
 
 (defn missing-fields [fields required-fields]
   (clojure.set/difference required-fields (set (keys fields))))
@@ -68,7 +64,7 @@
                   (assoc m (:delict/id d) true))
                 {} (:request/delicts req))
         [d t] (when-let [s (:request/event-timestamp req)]
-                (clojure.string/split s #"T"))
+                (clojure.string/split s #" "))
         req-datetime #:request{:date d :time t}]
     (-> req
         (assoc :request/delicts req-delicts)
@@ -79,23 +75,29 @@
 ;; -------------------------
 ;; Handlers
 
-(defn create-request! [fields]
+(rf/reg-event-fx
+  :clear-form
+  base-interceptors
+  (fn [_ [{:keys [doc path]}]]
+    (swap! doc assoc-in path nil)
+    nil))
+
+(defn create-request! [doc]
   (ajax/POST "/api/requests"
-             {:params (request-coercions fields)
+             {:params (request-coercions @doc)
               :handler #(do 
                             (rf/dispatch [:navigate/by-path "/#/"])
-                            (rf/dispatch [:requests/clear-form]))
-              :error-handler #(prn %)})
+                            (rf/dispatch [:requests/clear-form doc]))})
   nil)
 
 (rf/reg-event-fx
   :requests/create
   base-interceptors
-  (fn [{:keys [db]} [fields]]
-    (if (min-request-params? fields)
-      (create-request! fields)
+  (fn [{:keys [db]} [doc]]
+    (if (min-request-params? @doc)
+      (create-request! doc)
       {:db (assoc-in db [:requests :new :request/errors]
-                     (request-error-msg fields))})))
+                     (request-error-msg @doc))})))
         
 (rf/reg-event-fx
   :requests/load-delicts
@@ -103,7 +105,6 @@
   (fn [_ _]
     (ajax/GET "/api/delicts"
               {:handler #(rf/dispatch [:rff/set [:delicts/all] %])
-               :error-handler #(prn %)
                :response-format :json
                :keywords? true})
     nil))
@@ -117,7 +118,6 @@
                            (swap! app-db assoc :request r)
                            (rf/dispatch-sync [:rff/set [:requests/request] r])
                            (rf/dispatch-sync [:rff/set [:requests/edit] r]))
-               :error-handler #(prn %)
                :response-format :json
                :keywords? true})
     nil))
@@ -150,38 +150,37 @@
 (rf/reg-event-fx
   :requests/update
   base-interceptors
-  (fn [_ [fields]]
-    (let [r (rf/subscribe [:requests/request])]
-      (when (not= (select-keys r core-request-keys) 
-                  (select-keys fields core-request-keys))
-        (ajax/PUT (str "/api/requests/" (:request/id fields))
-                  {:params (request-coercions fields)
-                   :handler #(rf/dispatch [:navigate/by-path "/#/"])
-                   :error-handler #(prn %)}))
-      nil)))
+  (fn [_ [doc]]
+    (ajax/PUT (str "/api/requests/" (:request/id @doc))
+              {:params (request-coercions @doc)
+               :handler #(rf/dispatch [:navigate/by-path "/#/"])
+               :error-handler #(prn %)})
+    nil))
 
 (rf/reg-event-fx
-  :entity/query
+  :request.entity/create
   base-interceptors
-  (fn [_ [query]]
-    (let [{:entity/keys [name phone]} @query
-          col (if name "names" "phones")]
-      (ajax/GET (str "/api/entities/" col)
-                {:params {:query (or name phone)}
-                 :handler #(do (swap! query assoc :items %))
-                 :error-handler #(prn %)
-                 :response-format :json
-                 :keywords? true}))
+  (fn [_ [{:keys [params handler] rid :request/id eid :entity/id}]]
+    (ajax/POST (str "/api/requests/" rid "/entities/" eid)
+               {:params params
+                :handler handler})
+    nil))
+
+(rf/reg-event-fx
+  :request.entity/delete
+  base-interceptors
+  (fn [_ [{rid :request/id eid :entity/id}]]
+    (ajax/DELETE (str "/api/requests/" rid
+                      "/entities/" eid))
     nil))
 
 (rf/reg-event-fx
   :entity/create
   base-interceptors
-  (fn [_ [doc]]
+  (fn [_ [{:keys [params handler]}]]
     (ajax/POST "/api/entities"
-               {:params @doc
-                :handler #(rf/dispatch [:remove-modal])
-                :error-handler #(prn %)})
+               {:params params
+                :handler (when handler handler)})
     nil))
 
 ;; -------------------------

@@ -40,7 +40,8 @@
     ["/entities/{entity/id}/superscriptions"
      {:post ent/create-entity-superscription}]
     ["/entities/{entity/id}/superscriptions/{superscription/id}"
-     {:delete ent/delete-entity-superscription}]
+     {:post ent/create-entity-superscription
+      :delete ent/delete-entity-superscription}]
     ["/neighborhoods" {:get sup/get-neighborhoods
                        :post sup/create-neighborhood}]
     ["/routes" {:get sup/get-routes
@@ -56,8 +57,13 @@
      {:post requests/create-request-superscription}]
     ["/requests/{request/id}/superscriptions/{superscription/id}"
      {:delete requests/delete-request-superscription}]
+    ["/requests/{request/id}/entities/{entity/id}"
+     {:post requests/create-request-entity
+      :delete requests/delete-request-entity}]
     ["/requests/{request/id}/entities/{entity/id}/superscriptions/{superscription/id}"
      {:delete requests/delete-request-entity-superscription}]
     ["/requests/{request/id}/entities/{entity/id}/superscriptions"
-     {:post requests/create-request-entity-superscription}]]])
+     {:post requests/create-request-entity-superscription}]
+    ["/superscriptions"
+     {:post sup/create-superscription}]]])
     

@@ -1,5 +1,6 @@
 (ns copom.views.entity
   (:require
+    [clojure.string :as string]
     [copom.forms :as rff :refer [input select]]
     [copom.views.components :as comps :refer [form-group]]
     [copom.views.superscription :as sup :refer 
@@ -8,6 +9,12 @@
     [re-frame.core :as rf]))
     
 
+(def role->translation
+  {"requester" "solicitante"
+   "suspect" "suspeito"
+   "witness" "testemunha"
+   "victim" "vítima"})
+    
 (def docs-type ["CNH", "CNPJ" "CPF" "RG" "PASSAPORTE"])
 
 (declare entity-pick-modal)
@@ -24,7 +31,9 @@
             ;; open modal with entity fields
             {:on-click #(rf/dispatch 
                           [:modal (partial entity-pick-modal
-                                           (assoc kwargs :entity item))])}
+                                           (assoc kwargs :entity 
+                                             (assoc 
+                                               item :entity/role (:role kwargs))))])}
             (:entity/name item)])]))))
 
 (declare create-entity-modal)
@@ -153,13 +162,65 @@
                    :disabled disabled?
                    :name (conj path :entity/mother)}]]]]]])))
 
+(defn edit-entity-modal 
+  [{rid :request/id eid :entity/id sid :superscription/id :keys [doc path] :as kwargs}]
+  (let [temp-doc (r/atom (-> (get-in @doc path) (dissoc :entity/id)))
+        kwargs2 {:doc temp-doc
+                 :path []}]
+    (fn []
+      [comps/modal
+       {:header [:h3 "Editar #" (get-in @doc (conj path :entity/id))]
+        :body [:div 
+               [entity-core-form kwargs2]
+               [entity-docs-form kwargs2]]
+        :footer [:div
+                 [:button.btn.btn-success 
+                  ;; on-click:
+                  ;; - When and rid eid, delete the request-entity
+                  ;; - Create a new entity (and request-entity, when rid).
+                  ;; - assoc the returned entity/id into the doc's entity path.
+                  {:on-click #(rf/dispatch
+                                [:entity.edit-entity-modal/save
+                                 {:request/id rid
+                                  :entity/id eid
+                                  :superscription/id sid
+                                  :doc doc
+                                  :temp-doc temp-doc
+                                  :path path}])}
+                  "Salvar"]
+                 [:button.btn.btn-danger 
+                  {:on-click #(rf/dispatch [:remove-modal])}
+                  "Cancelar"]]}])))
+
 (defn entity-form [{:keys [doc path role opts] :as kwargs}]
   (let [address-path (conj path :entity/superscription)
         rid (:request/id @doc)
         eid (get-in @doc (conj path :entity/id))
         sid (get-in @doc (conj address-path :superscription/id))]
     [:div
-     [entity-core-form kwargs]
+     [:fieldset
+      [:legend (string/capitalize (role->translation role)) " "
+       (when eid
+         [:span
+          [:button.btn.btn-warning 
+           {:on-click #(rf/dispatch [:modal (partial edit-entity-modal
+                                                     {:doc doc
+                                                      :path path
+                                                      :request/id rid
+                                                      :entity/id eid
+                                                      :superscription/id sid})])}
+           "Alterar"]
+          [:button.btn.btn-danger 
+           {:on-click #(do (rf/dispatch [:clear-form
+                                         {:doc doc
+                                          :path path}])
+                           (when (and rid eid)
+                             (rf/dispatch [:request.entity/delete
+                                           {:request/id rid
+                                            :entity/id eid}])))}
+           "Excluir"]])]
+       
+      [entity-core-form kwargs]]
      [:fieldset
       [:legend "Endereço" " "
        (when-not sid
@@ -194,20 +255,9 @@
          {:doc doc :path address-path}])]
      [entity-docs-form kwargs]]))
 
-(defn entity-pick-modal [{:keys [doc entity path role]}]
+(defn entity-pick-modal [{:keys [doc entity path role] :as kwargs}]
   (let [;; args for entity form, including a temporary doc.
-        kwargs2 {:doc (r/atom entity) :path [] :role role :opts {:disabled? true}}
-        ;; assoc the selected superscription (by its :superscription/id)
-        ;; to :entity/superscription of the main doc.
-        f (fn []
-           (let [d @(:doc kwargs2)
-                 p (conj (:path kwargs2) :entity/superscription)]
-             (->> (:entity/superscriptions entity)
-                  (some #(and (= (:superscription/id %)
-                                 (get-in d p))
-                              %))
-                  (assoc-in d p)
-                  (swap! doc assoc-in path))))]                
+        kwargs2 {:doc (r/atom entity) :path [] :role role :opts {:disabled? true}}]
     (fn []
       [comps/modal
        {:header [:h3 (:entity/name entity)]
@@ -234,8 +284,11 @@
         :footer [:div
                  [:button.btn.btn-success 
                   ;; assoc the vals from the temp doc to the main doc
-                  {:on-click #(do (f)
-                                  (rf/dispatch [:remove-modal]))}
+                  {:on-click #(rf/dispatch 
+                                [:entity.entity-pick-modal/select
+                                 (merge kwargs
+                                       {:request/id (:request/id @doc)
+                                        :temp-doc (:doc kwargs2)})])} 
                   "Selecionar"]
                  [:button.btn.btn-danger 
                   {:on-click #(rf/dispatch [:remove-modal])}
@@ -249,7 +302,10 @@
         :body [entity-form {:doc doc :path [] :role role}]
         :footer [:div
                  [:button.btn.btn-success
-                  {:on-click #(rf/dispatch [:entity/create doc])}
+                  {:on-click #(rf/dispatch [:entity/create 
+                                            {:params @doc
+                                             :handler (fn [ret]
+                                                        [:remove-modal])}])}
                   "Criar"]
                  [:button.btn.btn-danger
                   {:on-click #(rf/dispatch [:remove-modal])}

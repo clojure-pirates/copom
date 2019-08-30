@@ -80,7 +80,7 @@
    :true-columns (->> [c/user-columns c/neighborhood-columns c/route-columns
                        c/superscription-columns c/delict-columns c/entity-columns
                        c/request-columns c/request-role-columns
-                       c/request-entity-columns]
+                       c/request-entity-columns c/request-delict-columns]
                       flatten (into #{}))
    
    :cardinality {:user/by-id :one

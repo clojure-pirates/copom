@@ -1,6 +1,7 @@
 (ns copom.events
   (:require
     [copom.router :as router]
+    copom.events.entity
     copom.events.request
     copom.events.superscription
     [copom.events.utils :refer [base-interceptors]]
@@ -13,6 +14,13 @@
 ;;dispatchers
 
 (def default-db {})
+
+(rf/reg-event-fx
+  :assoc-in!
+  base-interceptors
+  (fn [_ [doc path val]]
+    (swap! doc assoc-in path val)
+    nil))
 
 (rf/reg-event-db
  :modal

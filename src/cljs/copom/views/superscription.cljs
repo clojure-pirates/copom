@@ -180,7 +180,10 @@
 (defn create-superscription-modal
   [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
     :as kwargs}]
-  (let [temp-doc (r/atom (-> (get-in @doc path) (dissoc :superscription/id)))]
+  (let [temp-doc (r/atom (-> (get-in @doc path) (dissoc :superscription/id)))
+        handle (fn [val]
+                  (swap! doc assoc-in path val)
+                  (rf/dispatch [:remove-modal]))]
     (fn []
       [superscription-modal
        {:doc temp-doc
@@ -188,17 +191,9 @@
         :header [:h3 "Novo Endereço"]
         :footer [:div
                  [:button.btn.btn-success 
-                  {:on-click
-                   #(do (swap! doc assoc-in path @temp-doc)
-                       (cond (and rid eid)
-                             (rf/dispatch 
-                               [:request.entity.superscription/create kwargs])
-                             eid
-                             (rf/dispatch 
-                               [:entity.superscription/create kwargs])
-                             rid
-                             (rf/dispatch
-                               [:request.superscription/create kwargs])))}
+                  {:on-click #(rf/dispatch 
+                               [:superscription.create-superscription-modal/success
+                                (assoc kwargs :temp-doc temp-doc)])}
                   "Criar"]
                  [:button.btn.btn-danger 
                   {:on-click #(rf/dispatch [:remove-modal])}
@@ -215,22 +210,9 @@
         :header [:h3 "Alterar endereço"]
         :footer [:div
                  [:button.btn.btn-success 
-                  {:on-click
-                   #(do (swap! doc assoc-in path @temp-doc)
-                       (cond (and rid eid)
-                             (do (rf/dispatch 
-                                   [:request.entity.superscription/delete kwargs])
-                                 (rf/dispatch
-                                   [:request.entity.superscription/create kwargs]))
-                             eid
-                             (rf/dispatch 
-                               [:entity.superscription/create kwargs])
-                             rid
-                             (do (rf/dispatch
-                                   [:request.superscription/delete kwargs])
-                                 (rf/dispatch
-                                   [:request.superscription/create kwargs]))))}
-                         
+                  {:on-click #(rf/dispatch 
+                                [:superscription.edit-superscription-modal/success
+                                 (assoc kwargs :temp-doc temp-doc)])}
                   "Salvar"]
                  [:button.btn.btn-danger 
                   {:on-click #(rf/dispatch [:remove-modal])}

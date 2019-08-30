@@ -155,7 +155,7 @@
                (when @errors [:span.alert.alert-danger @errors])
                [:div.btn-group.float-right
                  [:button.btn.btn-success
-                  {:on-click #(rf/dispatch [:requests/create @doc])}
+                  {:on-click #(rf/dispatch [:requests/create doc])}
                   "Criar"]
                  [:a.btn.btn-danger
                   {:href (router/href :requests)
@@ -181,7 +181,7 @@
                    " "
                    [:div.btn-group
                      [:button.btn.btn-success
-                      {:on-click #(rf/dispatch [:requests/update @doc])}
+                      {:on-click #(rf/dispatch [:requests/update doc])}
                       "Salvar"]
                      [:a.btn.btn-danger
                       {:href (router/href :requests)

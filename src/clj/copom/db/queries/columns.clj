@@ -30,6 +30,9 @@
 (def request-entity-columns
   [:request-entity/id :request-entity/request-id :request-entity/entity-id])
 
+(def request-delict-columns
+  [:request-delict/id :request-delict/request-id :request-delict/delict-id])
+
 (def request-role-columns
   [:request-role/id :request-role/role])
 

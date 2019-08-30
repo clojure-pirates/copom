@@ -59,18 +59,6 @@
                           [:like :entity/phone (str "%" query "%")])})
         cols}])))
 
-(defn get-complaints [{{query :query} :params}]
-  (response/ok
-    (->>
-      (db/parser
-       [{(list :requests/all
-               {:distinct [:request/complaint]
-                :filters (when query [:like :request/complaint (str "%" query "%")])
-                :limit 10})
-         [:request/complaint]}])
-      (map :request/complaint)
-      (into #{}))))
-
 (defn create-entity [{:keys [params]}]
   (response/ok
     {:entity/id (create-entity! params)}))
@@ -78,7 +66,7 @@
 (defn create-entity-superscription [{:keys [params path-params]}]
   (jdbc/with-db-transaction [conn db/*db*]
    (binding [db/*db* conn]
-     (let [sid (create-sup! params)]
+     (let [sid (or (:superscription/id path-params) (create-sup! params))]
        (create-ent-sup! (:entity/id path-params) sid)
        (response/ok 
          {:superscription/id sid})))))

@@ -6,6 +6,7 @@
     [copom.db.queries :as qu]
     [copom.db.queries.common :as q]
     [copom.db.queries.columns :as c]
+    [copom.routes.entity :refer [create-ent-sup!]]
     [copom.routes.superscription :refer [create-sup!]]
     [copom.utils :refer [m->upper-case]]
     [ring.util.http-response :as response]))
@@ -43,11 +44,13 @@
                        :entity-id entity-id}}))
 
 (defn create-req-ent-role! [req-ent-id role]
-  (let [role-id (db/parser [{[:request-role/by-role role]
-                             [:request-role/id]}])]
+  (let [role-map (if (map? role)
+                    role
+                    (db/parser [{[:request-role/by-role role]
+                                 [:request-role/id]}]))]
     (q/create! {:table "request_entity_role"
                 :params {::request-entity-id req-ent-id
-                         ::role-id (:request-role/id role-id)}})))
+                         ::role-id (:request-role/id role-map)}})))
 ;;; Delicts
 
 (defn create-req-delicts! [rid did]
@@ -58,7 +61,7 @@
 ;;; Request
 
 (defn min-request-params? [params]
-  (and (:request/complaint params) (:request/summary params)
+  (and (:request/complaint params)
        (:request/status params)))
 
 (defn create-request! [params]
@@ -91,10 +94,11 @@
   request-entity-superscription, for each entity."
   [rid entities]
   (doseq [e entities]
-    (let [reid (create-req-ent! rid (:entity/id e))]
-      (create-req-ent-role! reid (:entity/role e))
-      (when-let [sid (get-in e [:entity/superscription :superscription/id])]
-        (create-req-ent-sup! reid sid)))))
+    (when-let [eid (:entity/id e)]
+      (let [reid (create-req-ent! rid (:entity/id e))]
+        (create-req-ent-role! reid (:entity/role e))
+        (when-let [sid (get-in e [:entity/superscription :superscription/id])]
+          (create-req-ent-sup! reid sid))))))
 
 ;;; DELETE
 
@@ -104,6 +108,10 @@
     (q/delete! {:table "request_superscription" 
                 :where ["request_id = ? AND superscription_id = ?" rid sid]})))
 
+(defn delete-request-entity! [{rid :request/id eid :entity/id}]
+  (q/delete! {:table "request_entity"
+              :where ["request_id = ? AND entity_id = ? " rid eid]}))
+
 (defn delete-entity! [eid]
   (q/delete! {:table "entity" :where ["id = ?" eid]}))  
 
@@ -111,8 +119,24 @@
 
 (defn update-request! [params]
   (q/update! {:table "request"
-              :params (select-keys params req-core-keys)
+              :params (m->upper-case (select-keys params req-core-keys))
               :where ["id = ?" (:request/id params)]}))
+
+(defn delete-request-delict! [rid did]
+  (q/delete! {:table "request_delict"
+              :where ["request_id = ? AND delict_id = ?" rid did]}))
+
+(defn update-request-delicts! [{rid :request/id delicts :request/delicts}]
+  (let [delicts1 (set delicts)
+        delicts2 (->> (get-request-delicts rid)
+                      (map :request-delict/delict-id)
+                      set)]
+    (when (not= delicts1 delicts2)
+      (let [new (clojure.set/difference delicts1 delicts2)
+            delete (clojure.set/difference delicts2 delicts1)]
+        (create-req-delicts! rid new)
+        (doseq [d delete]
+          (delete-request-delict! rid d))))))
 
 ; -----------------------------------------------------------------------------
 ; Request Handlers
@@ -120,15 +144,25 @@
 ; CREATE
 
 (defn create-request [{:keys [params]}]
+  (if-not (min-request-params? params)
+    (response/bad-request "Missing required param.")
+    (jdbc/with-db-transaction [conn db/*db*]
+     (binding [db/*db* conn]
+       (let [rid (create-request! params)
+             sid (get-in params [:request/superscription :superscription/id])]
+         (when sid                        
+           (create-req-sup! rid sid))
+         (create-req-ent-relations! rid (req-ents params))
+         (create-req-delicts! rid (:request/delicts params))
+         (response/ok
+          {:request/id rid}))))))
+
+(defn create-request-entity [{:keys [path-params params]}]
   (jdbc/with-db-transaction [conn db/*db*]
    (binding [db/*db* conn]
-     (let [rid (create-request! params)]
-       (create-req-sup! rid (get-in params [:request/superscription 
-                                            :superscription/id]))
-       (create-req-ent-relations! rid (req-ents params))
-       (create-req-delicts! rid (:request/delicts params))
-       (response/ok
-        {:request/id rid})))))
+     (create-req-ent-relations! (:request/id path-params) [params])
+     (response/ok
+       {:result :ok}))))
 
 (defn create-request-entity-superscription [{:keys [path-params params]}]
   (jdbc/with-db-transaction [conn db/*db*]
@@ -141,7 +175,6 @@
          {:superscription/id sid})))))
 
 (defn create-request-superscription [{:keys [path-params params]}]
-  (prn path-params)
   (jdbc/with-db-transaction [conn db/*db*]
    (binding [db/*db* conn]
      (response/ok
@@ -161,20 +194,39 @@
     (db/parser [{[:request/by-id (get-in req [:parameters :path :request/id])]
                  c/request-query}])))    
 #_(get-request {:parameters {:path {:request/id 1}}})
-      
+
+(defn get-complaints [{{query :query} :params}]
+  (response/ok
+    (->>
+      (db/parser
+       [{(list :requests/all
+               {:distinct [:request/complaint]
+                :filters (when query [:like :request/complaint (str "%" query "%")])
+                :limit 10})
+         [:request/complaint]}])
+      (map :request/complaint)
+      (into #{}))))
+
+(defn get-request-delicts [rid]
+  (-> (db/parser [{[:request/by-id rid]
+                   [{:request/delicts [:request-delict/request-id
+                                       :request-delict/delict-id]}]}])
+      :request/delicts))                    
+
 ; UPDATE
 (defn update-request [{:keys [params]}]
   (response/ok
     (jdbc/with-db-transaction [conn db/*db*]
      (binding [db/*db* conn]
        (update-request! params)
-       ;(update-req-sup! params)
-       ;(update-request-entities-relations! params)
-       ; update-request-delicts!
+       (update-request-delicts! params)
        {:result :ok}))))
 
 ; DELETE
-(defn delete-request [req])
+(defn delete-request-entity [{:keys [path-params]}]
+  (delete-request-entity! path-params)
+  (response/ok
+    {:result :ok}))
 
 (defn delete-request-superscription [{:keys [path-params]}]
   (delete-req-sup! path-params)

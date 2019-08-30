@@ -68,3 +68,9 @@
 (defn create-route [{:keys [params]}]
   (create-route! params)
   (response/ok {:result :ok}))
+
+(defn create-superscription [{:keys [params]}]
+  (if-let [sid (create-sup! params)]
+    (response/ok
+      {:superscription/id sid})
+    (response/bad-request "Missing required params.")))
