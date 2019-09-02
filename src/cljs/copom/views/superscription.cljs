@@ -1,6 +1,7 @@
 (ns copom.views.superscription
   (:require
     [clojure.string :as string]
+    [copom.db :refer [app-db]]
     [copom.forms :as rff :refer [input select]]
     [copom.views.components :as comps :refer [form-group]] 
     [reagent.core :as r]
@@ -170,52 +171,52 @@
                 :name (conj path :superscription/state)
                 :default-value "Mato Grosso"}]]]]]))
 
-(defn superscription-modal 
-  [{:keys [doc path header footer]}]
-  [comps/modal
-   {:header header
-    :body [address-form {:doc doc :path []}]
-    :footer footer}])
-
 (defn create-superscription-modal
   [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
     :as kwargs}]
-  (let [temp-doc (r/atom (-> (get-in @doc path) (dissoc :superscription/id)))
-        handle (fn [val]
-                  (swap! doc assoc-in path val)
-                  (rf/dispatch [:remove-modal]))]
+  (let [p [:superscription/new]
+        temp-doc (r/cursor app-db p)]
     (fn []
-      [superscription-modal
-       {:doc temp-doc
-        :path path
-        :header [:h3 "Novo Endereço"]
+      [comps/modal
+       {:header [:h3 "Novo Endereço"]        
+        :body [:div 
+               [address-form {:doc temp-doc :path []}]]
         :footer [:div
                  [:button.btn.btn-success 
-                  {:on-click #(rf/dispatch 
-                               [:superscription.create-superscription-modal/success
-                                (assoc kwargs :temp-doc temp-doc)])}
+                  {:on-click #(do
+                                (rf/dispatch-sync
+                                 [:superscription.create-superscription-modal/success
+                                  (assoc kwargs :temp-doc temp-doc)]))}
                   "Criar"]
                  [:button.btn.btn-danger 
-                  {:on-click #(rf/dispatch [:remove-modal])}
+                  {:on-click #(do (rf/dispatch [:assoc-in! app-db p nil])
+                                  (rf/dispatch [:remove-modal]))}
                   "Cancelar"]]}])))
 
 (defn edit-superscription-modal
   [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
     :as kwargs}]
-  (let [temp-doc (r/atom (-> (get-in @doc path) (dissoc :superscription/id)))]
+  (let [p [:superscription/edit]
+        temp-doc (r/cursor app-db p)]
+    ;; Check whether the temp-doc was already initialized or not:
+    (when-not (seq @temp-doc)
+      (rf/dispatch-sync [:assoc-in! app-db p 
+                         (-> (get-in @doc path) (dissoc :superscription/id))]))
     (fn []
-      [superscription-modal
-       {:doc temp-doc
-        :path path
-        :header [:h3 "Alterar endereço"]
+      [comps/modal
+       {:header [:h3 "Alterar endereço"]
+        :body [:div
+               [address-form {:doc temp-doc :path []}]]
         :footer [:div
                  [:button.btn.btn-success 
-                  {:on-click #(rf/dispatch 
-                                [:superscription.edit-superscription-modal/success
-                                 (assoc kwargs :temp-doc temp-doc)])}
+                  {:on-click #(do 
+                                  (rf/dispatch 
+                                    [:superscription.edit-superscription-modal/success
+                                     (assoc kwargs :temp-doc temp-doc)]))}
                   "Salvar"]
                  [:button.btn.btn-danger 
-                  {:on-click #(rf/dispatch [:remove-modal])}
+                  {:on-click #(do (rf/dispatch [:reset! temp-doc nil])
+                                  (rf/dispatch [:remove-modal]))}
                   "Cancelar"]]}])))
 
 (defn create-superscription-button 

@@ -13,23 +13,27 @@
          {:neighborhood/id (get-in m [:superscription/neighborhood :neighborhood/id])
           :route/id (get-in m [:superscription/route :route/id])}))
 
+
 (rf/reg-event-fx
   :superscription.create-superscription-modal/success
   base-interceptors
   (fn [_ [{rid :request/id eid :entity/id :keys [doc temp-doc path]}]]
     (let [handler (fn [ret]
-                    (rf/dispatch [:assoc-in! doc path 
-                                  (merge @temp-doc ret)])
+                    ;; Assoc the vals to the main doc.
+                    (rf/dispatch-sync
+                      [:assoc-in! doc path 
+                        (merge @temp-doc ret)])
+                    (rf/dispatch [:clear-form! temp-doc])
                     (rf/dispatch [:remove-modal]))
           params {:request/id rid
                   :entity/id eid
                   :params @temp-doc
                   :handler handler}]
      (cond (and rid eid)
-           (rf/dispatch 
+           (rf/dispatch-sync
              [:request.entity.superscription/create params])
            eid
-           (do (rf/dispatch 
+           (do (rf/dispatch
                  [:entity.superscription/create params]))
            rid
            (do (rf/dispatch
@@ -45,8 +49,10 @@
   (fn [_ [{rid :request/id eid :entity/id sid :superscription/id
            :keys [doc temp-doc path] :as kwargs}]]
     (let [handler (fn [ret]
-                    (rf/dispatch [:assoc-in! doc path
-                                  (merge @temp-doc ret)])
+                    ;; Assoc the vals to the main doc.
+                    (rf/dispatch-sync [:assoc-in! doc path
+                                        (merge @temp-doc ret)])
+                    (rf/dispatch [:clear-form! temp-doc])
                     (rf/dispatch [:remove-modal]))
           params {:request/id rid
                   :entity/id eid
@@ -64,7 +70,10 @@
            (do (rf/dispatch
                  [:request.superscription/delete kwargs])
                (rf/dispatch
-                 [:request.superscription/create params]))))))
+                 [:request.superscription/create params]))
+           :else
+           (rf/dispatch
+             [:superscription/create params])))))
 
 
 (rf/reg-event-fx

@@ -20,6 +20,12 @@
                    [:request-entity/id]}])
       first :request-entity/id)) 
 
+(defn get-request-delicts [rid]
+  (-> (db/parser [{[:request/by-id rid]
+                   [{:request/delicts [:request-delict/request-id
+                                       :request-delict/delict-id]}]}])
+      :request/delicts))                    
+
 (def req-core-keys 
   [:request/complaint :request/summary :request/event-timestamp
    :request/status :request/measures])
@@ -206,12 +212,6 @@
          [:request/complaint]}])
       (map :request/complaint)
       (into #{}))))
-
-(defn get-request-delicts [rid]
-  (-> (db/parser [{[:request/by-id rid]
-                   [{:request/delicts [:request-delict/request-id
-                                       :request-delict/delict-id]}]}])
-      :request/delicts))                    
 
 ; UPDATE
 (defn update-request [{:keys [params]}]

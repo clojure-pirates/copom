@@ -16,6 +16,23 @@
 (def default-db {})
 
 (rf/reg-event-fx
+  :clear-form!
+  base-interceptors
+  (fn [_ [doc path]]
+    (if path
+      (rf/dispatch [:assoc-in! doc nil])
+      (rf/dispatch [:reset! doc nil]))
+    (reset! doc val)
+    nil))
+
+(rf/reg-event-fx
+  :reset!
+  base-interceptors
+  (fn [_ [doc val]]
+    (reset! doc val)
+    nil))
+
+(rf/reg-event-fx
   :assoc-in!
   base-interceptors
   (fn [_ [doc path val]]
