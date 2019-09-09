@@ -57,6 +57,8 @@
      {:post requests/create-request-superscription}]
     ["/requests/{request/id}/superscriptions/{superscription/id}"
      {:delete requests/delete-request-superscription}]
+    ["/requests/{request/id}/entities"
+     {:post requests/create-request-entity*}]
     ["/requests/{request/id}/entities/{entity/id}"
      {:post requests/create-request-entity
       :delete requests/delete-request-entity}]

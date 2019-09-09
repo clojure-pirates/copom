@@ -166,11 +166,34 @@
   :request.entity/create
   base-interceptors
   (fn [_ [{:keys [params handler error-handler] rid :request/id eid :entity/id}]]
-    (ajax/POST (str "/api/requests/" rid "/entities/" eid)
-               {:params params
-                :handler handler
-                :error-handler error-handler})
+    (let [uri (cond-> ["/api" "requests" rid "entities"]
+                      eid  (conj eid)
+                      true (->> (clojure.string/join "/")))]
+      (ajax/POST uri
+                 {:params params
+                  :handler handler
+                  :error-handler error-handler}))
     nil))
+
+(rf/reg-event-fx
+  :request.entity.create/handler
+  base-interceptors
+  (fn [_ [{rid :request/id :keys [doc temp-doc path]}]]
+    (let [save-to-doc! (fn [entity]
+                         (if (get-in @doc path)
+                           (rf/dispatch [:update-in! doc path #(conj % entity)])
+                           (rf/dispatch [:assoc-in! doc path [entity]])))
+          f (fn [eid-map]
+              (save-to-doc! (merge @temp-doc eid-map))
+              (rf/dispatch [:clear-form! temp-doc])
+              (rf/dispatch [:remove-modal]))
+          params {:request/id rid
+                  :params @temp-doc
+                  :handler f}]
+      (if rid
+        (rf/dispatch [:request.entity/create params])
+        (rf/dispatch [:entity/create params]))
+      nil)))
 
 (rf/reg-event-fx
   :request.entity/delete
@@ -181,7 +204,7 @@
     nil))
 
 (rf/reg-event-fx
-  :request.create-entity-superscription/handler
+  :request.entity.superscription.create/handler
   base-interceptors
   (fn [_ [{rid :request/id eid :entity/id
            :keys [doc temp-doc path]}]]
@@ -202,6 +225,36 @@
         
         eid
         (rf/dispatch [:entity.superscription/create params]))
+      nil)))
+
+(rf/reg-event-fx
+  :request.entity.superscription.edit/handler
+  base-interceptors
+  (fn [_ [{rid :request/id eid :entity/id sid :superscription/id
+           :keys [doc path temp-doc] :as kwargs}]]
+    (when (and rid eid)
+      (rf/dispatch [:request.entity.superscription/delete
+                    {:request/id rid
+                     :entity/id eid
+                     :superscription/id sid}]))
+    (rf/dispatch [:request.entity.superscription.create/handler kwargs])
+    nil))
+
+(rf/reg-event-fx
+  :request.entity.superscription.delete/handler
+  base-interceptors
+  (fn [_ [{rid :request/id eid :entity/id sid :superscription/id 
+           :keys [doc path]}]]
+    (let [params {:request/id rid
+                  :entity/id eid
+                  :superscription/id sid
+                  :handler #(rf/dispatch [:assoc-in! doc path nil])}]
+      (cond
+        (and rid eid sid)
+        (rf/dispatch [:request.entity.superscription/delete params])
+        
+        (and eid sid)
+        (rf/dispatch [:entity.superscription/delete params]))
       nil)))
 
 (rf/reg-event-fx
@@ -237,15 +290,15 @@
 (rf/reg-event-fx
   :request.entity.superscription/delete
   base-interceptors
-  (fn [_ [{doc :doc path :path rid :request/id eid :entity/id 
-           sid :superscription/id :as params}]]
+  (fn [_ [{rid :request/id eid :entity/id sid :superscription/id
+           :keys [handler]}]]
     ;; Set the entity/superscription to nil
     ;(swap! doc assoc-in path nil)
     (when (and rid eid sid)
       (ajax/DELETE (str "/api/requests/" rid 
                         "/entities/" eid 
                         "/superscriptions/" sid)
-                   {:error-handler #(prn %)}))
+                   {:handler handler}))
     nil))
 
 

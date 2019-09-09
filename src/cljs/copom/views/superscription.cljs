@@ -234,11 +234,4 @@
   [{:keys [handler]}]
   [:button.btn.btn-danger
    {:on-click handler}
-    ; #(do (swap! doc assoc-in path nil)
-    ;     (cond (and rid eid sid)
-    ;           (rf/dispatch [:request.entity.superscription/delete kwargs])
-    ;           (and eid sid)
-    ;           (rf/dispatch [:entity.superscription/delete kwargs])
-    ;           (and rid sid)
-    ;           (rf/dispatch [:request.superscription/delete kwargs])))}
    "Excluir"])

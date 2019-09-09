@@ -42,8 +42,8 @@
 (rf/reg-event-fx
   :update-in!
   base-interceptors
-  (fn [_ [doc path f & args]]
-    (swap! doc update-in path f args)
+  (fn [_ [doc path f]]
+    (swap! doc update-in path f)
     nil))
 
 

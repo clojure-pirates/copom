@@ -42,11 +42,6 @@
   (let [query (r/atom nil)]
     (fn []
       [:div
-       #_
-       [input {:type :hidden
-               :doc doc
-               :name (conj path :entity/role)
-               :default-value role}]
        [:div.form-row
         [:div.col
          [form-group
@@ -71,17 +66,21 @@
           {:on-click #(rf/dispatch [:entity/query query])}
           "Buscar"]
          [:button.btn.btn-danger
-          {:on-click #(swap! doc assoc-in path nil)}
+          {:on-click #(reset! query nil)}
           "Limpar"]
          (when (:items @query)
            [:button.btn.btn-success
-            {:on-click #(rf/dispatch 
-                          [:modal (partial create-entity-modal 
-                                          {:role role
-                                           :handler (fn [doc]
-                                                      (rf/dispatch 
-                                                        [:entity.create/handler
-                                                         doc]))})])}
+            {:on-click 
+             #(rf/dispatch 
+                [:modal (partial create-entity-modal 
+                                {:request/id (:request/id @doc)
+                                 :doc doc
+                                 :path path
+                                 :role role
+                                 :handler (fn [params]
+                                            (rf/dispatch
+                                              [:request.entity.create/handler
+                                               params]))})])}
             "+"])]]
        [query-items (assoc kwargs :query query)]])))
 
@@ -247,7 +246,7 @@
             :entity/id eid
             :handler (fn [params]
                        (rf/dispatch
-                         [:request.create-entity-superscription/handler 
+                         [:request.entity.superscription.create/handler
                           params]))}]])
        (when sid
          [:span
@@ -256,13 +255,19 @@
              :path address-path
              :request/id rid
              :entity/id eid
-             :superscription/id sid}] 
+             :superscription/id sid
+             :handler (fn [params]
+                        (rf/dispatch 
+                          [:request.entity.superscription.edit/handler
+                           params]))}] 
            [sup/delete-superscription-button
-            {:doc doc 
-             :path address-path 
-             :request/id rid 
-             :entity/id eid 
-             :superscription/id sid}]])]
+            {:handler 
+             #(rf/dispatch [:request.entity.superscription.delete/handler                 
+                            {:doc doc 
+                             :path address-path 
+                             :request/id rid 
+                             :entity/id eid 
+                             :superscription/id sid}])}]])]
       (when sid
         [address-form 
          {:doc doc :path address-path}])]
@@ -309,15 +314,17 @@
                   {:on-click #(rf/dispatch [:remove-modal])}
                   "Cancelar"]]}])))
     
-(defn create-entity-modal [{:keys [handler role]}]
-  (let [doc (r/atom nil)]
+(defn create-entity-modal 
+  [{rid :request/id :keys [doc path handler role]
+    :as kwargs}]
+  (let [temp-doc (r/atom nil)]
     (fn []
       [comps/modal
        {:header [:h3 "Criar entidade"]
-        :body [entity-form {:doc doc :path [] :role role}]
+        :body [entity-form {:doc temp-doc :path [] :role role}]
         :footer [:div
                  [:button.btn.btn-success
-                  {:on-click #(handler @doc)}
+                  {:on-click #(handler (assoc kwargs :temp-doc temp-doc))}
                   "Criar"]
                  [:button.btn.btn-danger
                   {:on-click #(rf/dispatch [:remove-modal])}

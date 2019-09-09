@@ -6,7 +6,7 @@
     [copom.db.queries :as qu]
     [copom.db.queries.common :as q]
     [copom.db.queries.columns :as c]
-    [copom.routes.entity :refer [create-ent-sup!]]
+    [copom.routes.entity :refer [create-ent-sup! create-entity!]]
     [copom.routes.superscription :refer [create-sup!]]
     [copom.utils :refer [m->upper-case]]
     [ring.util.http-response :as response]))
@@ -174,6 +174,22 @@
       (response/internal-server-error
         {:error-msg (.getMessage e)}))))
 
+;; Same as `create-request-entity`, but creates an entity first, returning
+;; its id.
+(defn create-request-entity* [{:keys [path-params params]}]
+  (try
+    (jdbc/with-db-transaction [conn db/*db*]
+     (binding [db/*db* conn]
+       (let [eid (create-entity! params)]
+         (create-req-ent-relations! (:request/id path-params) 
+                                    [(assoc params :entity/id eid)])
+         (response/ok
+           {:entity/id eid}))))
+    (catch Exception e
+      (response/internal-server-error
+        {:error-msg (.getMessage e)}))))
+
+
 (defn create-request-entity-superscription [{:keys [path-params params]}]
   (jdbc/with-db-transaction [conn db/*db*]
    (binding [db/*db* conn]
@@ -183,6 +199,7 @@
        (create-req-ent-sup! reid sid)
        (response/ok 
          {:superscription/id sid})))))
+
 
 (defn create-request-superscription [{:keys [path-params params]}]
   (jdbc/with-db-transaction [conn db/*db*]
