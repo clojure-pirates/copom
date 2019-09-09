@@ -1,19 +1,10 @@
 (ns copom.events.superscription
   (:require
     [ajax.core :as ajax]
-    [copom.events.utils :refer [base-interceptors]]
+    [copom.events.utils :refer [base-interceptors superscription-coercions]]
     [re-frame.core :as rf]))
 
-(def core-superscription-keys
-  [:superscription/num :superscription/complement :superscription/reference
-   :superscription/city :superscription/state])
-
-(defn superscription-coercions [m]
-  (merge (select-keys m core-superscription-keys)
-         {:neighborhood/id (get-in m [:superscription/neighborhood :neighborhood/id])
-          :route/id (get-in m [:superscription/route :route/id])}))
-
-
+;; NOTE: this event is being decentralized
 (rf/reg-event-fx
   :superscription.create-superscription-modal/success
   base-interceptors
@@ -43,6 +34,7 @@
              [:superscription/create params]))
      nil)))
 
+;; NOTE: this event is being decentralized
 (rf/reg-event-fx
   :superscription.edit-superscription-modal/success
   base-interceptors
@@ -109,75 +101,3 @@
                 :keywords? true})
     nil))
 
-(rf/reg-event-fx
-  :request.entity.superscription/create
-  base-interceptors
-  (fn [_ [{rid :request/id eid :entity/id :keys [params handler]}]]
-    (ajax/POST (str "/api/requests/" rid
-                    "/entities/" eid "/superscriptions")
-               {:handler handler
-                :params (superscription-coercions params)
-                :response-format :json
-                :keywords? true})
-    nil))
-
-; When there's an eid and sid, will create an entity-superscription.
-; When there's only the eid, will create a sup with the given params, 
-; and then create an entity-superscription.
-(rf/reg-event-fx
-  :entity.superscription/create
-  base-interceptors
-  (fn [_ [{eid :entity/id sid :superscription/id :keys [params handler]}]]
-    (let [base (str "/api/entities/" eid "/superscriptions")
-          uri (if sid (str base "/" sid) base)]
-      (ajax/POST uri
-                 {:handler handler
-                  :params (superscription-coercions params)
-                  :response-format :json
-                  :keywords? true})
-      nil)))
-
-
-(rf/reg-event-fx
-  :request.entity.superscription/delete
-  base-interceptors
-  (fn [_ [{doc :doc path :path rid :request/id eid :entity/id 
-           sid :superscription/id :as params}]]
-    ;; Set the entity/superscription to nil
-    ;(swap! doc assoc-in path nil)
-    (when (and rid eid sid)
-      (ajax/DELETE (str "/api/requests/" rid 
-                        "/entities/" eid 
-                        "/superscriptions/" sid)
-                   {:error-handler #(prn %)}))
-    nil))
-
-(rf/reg-event-fx
-  :request.superscription/delete
-  base-interceptors
-  (fn [_ [{rid :request/id sid :superscription/id}]]
-    (ajax/DELETE (str "/api/requests/" rid
-                      "/superscriptions/" sid)
-                 {:error-handler #(prn %)})
-    nil))
-
-(rf/reg-event-fx
-  :entity.superscription/delete
-  base-interceptors
-  (fn [_ [{doc :doc path :path eid :entity/id 
-           sid :superscription/id :as params}]]
-    ;; Set the entity/superscription to nil
-    (swap! doc assoc-in path nil)
-    (ajax/DELETE (str "/api/entities/" eid 
-                      "/superscriptions/" sid)
-                 {:error-handler #(prn %)})
-    nil))
-
-(rf/reg-event-fx
-  :request.superscription/create
-  base-interceptors
-  (fn [_ [{rid :request/id :keys [handler params]}]]
-    (ajax/POST (str "/api/requests/" rid "/superscriptions")
-               {:params (superscription-coercions params)
-                :handler handler})
-    nil))

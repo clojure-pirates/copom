@@ -39,6 +39,14 @@
     (swap! doc assoc-in path val)
     nil))
 
+(rf/reg-event-fx
+  :update-in!
+  base-interceptors
+  (fn [_ [doc path f & args]]
+    (swap! doc update-in path f args)
+    nil))
+
+
 (rf/reg-event-db
  :modal
  base-interceptors

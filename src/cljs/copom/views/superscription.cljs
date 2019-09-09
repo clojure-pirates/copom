@@ -172,7 +172,7 @@
                 :default-value "Mato Grosso"}]]]]]))
 
 (defn create-superscription-modal
-  [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
+  [{:keys [doc path handler] rid :request/id eid :entity/id sid :superscription/id
     :as kwargs}]
   (let [p [:superscription/new]
         temp-doc (r/cursor app-db p)]
@@ -183,10 +183,7 @@
                [address-form {:doc temp-doc :path []}]]
         :footer [:div
                  [:button.btn.btn-success 
-                  {:on-click #(do
-                                (rf/dispatch-sync
-                                 [:superscription.create-superscription-modal/success
-                                  (assoc kwargs :temp-doc temp-doc)]))}
+                  {:on-click #(handler (assoc kwargs :temp-doc temp-doc))}
                   "Criar"]
                  [:button.btn.btn-danger 
                   {:on-click #(do (rf/dispatch [:assoc-in! app-db p nil])
@@ -194,7 +191,8 @@
                   "Cancelar"]]}])))
 
 (defn edit-superscription-modal
-  [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
+  [{rid :request/id eid :entity/id sid :superscription/id
+    :keys [doc path handler]
     :as kwargs}]
   (let [p [:superscription/edit]
         temp-doc (r/cursor app-db p)]
@@ -209,10 +207,7 @@
                [address-form {:doc temp-doc :path []}]]
         :footer [:div
                  [:button.btn.btn-success 
-                  {:on-click #(do 
-                                  (rf/dispatch 
-                                    [:superscription.edit-superscription-modal/success
-                                     (assoc kwargs :temp-doc temp-doc)]))}
+                  {:on-click #(handler (assoc kwargs :temp-doc temp-doc))}
                   "Salvar"]
                  [:button.btn.btn-danger 
                   {:on-click #(do (rf/dispatch [:reset! temp-doc nil])
@@ -220,7 +215,7 @@
                   "Cancelar"]]}])))
 
 (defn create-superscription-button 
-  [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
+  [{:keys [doc path handler] rid :request/id eid :entity/id sid :superscription/id
     :as kwargs}]
   [:button.btn.btn-success 
    {:on-click #(rf/dispatch 
@@ -228,7 +223,7 @@
    "Novo"])
 
 (defn edit-superscription-button 
-  [{:keys [doc path] rid :request/id eid :entity/id sid :superscription/id
+  [{:keys [doc path handler] rid :request/id eid :entity/id sid :superscription/id
     :as kwargs}]
   [:button.btn.btn-success 
    {:on-click #(rf/dispatch 
@@ -236,15 +231,14 @@
    "Alterar"])
 
 (defn delete-superscription-button 
-  [{rid :request/id eid :entity/id sid :superscription/id 
-    :keys [doc path] :as kwargs}]
+  [{:keys [handler]}]
   [:button.btn.btn-danger
-   {:on-click
-    #(do (swap! doc assoc-in path nil)
-        (cond (and rid eid sid)
-              (rf/dispatch [:request.entity.superscription/delete kwargs])
-              (and eid sid)
-              (rf/dispatch [:entity.superscription/delete kwargs])
-              (and rid sid)
-              (rf/dispatch [:request.superscription/delete kwargs])))}
+   {:on-click handler}
+    ; #(do (swap! doc assoc-in path nil)
+    ;     (cond (and rid eid sid)
+    ;           (rf/dispatch [:request.entity.superscription/delete kwargs])
+    ;           (and eid sid)
+    ;           (rf/dispatch [:entity.superscription/delete kwargs])
+    ;           (and rid sid)
+    ;           (rf/dispatch [:request.superscription/delete kwargs])))}
    "Excluir"])

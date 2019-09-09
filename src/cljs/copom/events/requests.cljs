@@ -2,7 +2,7 @@
   (:require
     [ajax.core :as ajax]
     [copom.db :refer [app-db]]
-    [copom.events.utils :refer [base-interceptors]]
+    [copom.events.utils :refer [base-interceptors superscription-coercions]]
     [re-frame.core :as rf]))
 
 ;; -------------------------
@@ -52,13 +52,18 @@
          (str "Campos obrigatórios: "))
     "."))
 
+(defn- request-entities-edit-mode 
+  "Group :request/entities by their role."
+  [req-ents]
+  (-> (group-by #(get-in % [:entity/role :request-role/role])
+                req-ents)
+      (clojure.set/rename-keys {"requester" :request/requester
+                                "victim"    :request/victim
+                                "suspect"   :request/suspect
+                                "witness"   :request/witness})))
+  
 (defn edit-mode [req]
-  (let [;; :request/requester, :request/suspect, :request/witness, 
-        ;; :request/victim
-        req-entities
-        (reduce (fn [m {{r :request-role/role} :entity/role :as e}]
-                  (assoc m (keyword "request" r) e))
-                {} (:request/entities req))
+  (let [req-entities (-> req :request/entities request-entities-edit-mode)
         req-delicts
         (reduce (fn [m d]
                   (assoc m (:delict/id d) true))
@@ -160,10 +165,11 @@
 (rf/reg-event-fx
   :request.entity/create
   base-interceptors
-  (fn [_ [{:keys [params handler] rid :request/id eid :entity/id}]]
+  (fn [_ [{:keys [params handler error-handler] rid :request/id eid :entity/id}]]
     (ajax/POST (str "/api/requests/" rid "/entities/" eid)
                {:params params
-                :handler handler})
+                :handler handler
+                :error-handler error-handler})
     nil))
 
 (rf/reg-event-fx
@@ -175,13 +181,125 @@
     nil))
 
 (rf/reg-event-fx
-  :entity/create
+  :request.create-entity-superscription/handler
   base-interceptors
-  (fn [_ [{:keys [params handler]}]]
-    (ajax/POST "/api/entities"
-               {:params params
-                :handler (when handler handler)})
+  (fn [_ [{rid :request/id eid :entity/id
+           :keys [doc temp-doc path]}]]
+    (let [f (fn [sid-map]
+              ;; Assoc the vals to the main doc.
+              (rf/dispatch-sync
+                [:assoc-in! doc path 
+                  (merge @temp-doc sid-map)])
+              (rf/dispatch [:clear-form! temp-doc])
+              (rf/dispatch [:remove-modal]))
+          params {:request/id rid
+                  :entity/id eid
+                  :params @temp-doc
+                  :handler f}]
+      (cond
+        (and rid eid)
+        (rf/dispatch [:request.entity.superscription/create params])
+        
+        eid
+        (rf/dispatch [:entity.superscription/create params]))
+      nil)))
+
+(rf/reg-event-fx
+  :request.superscription/create
+  base-interceptors
+  (fn [_ [{rid :request/id :keys [handler params]}]]
+    (ajax/POST (str "/api/requests/" rid "/superscriptions")
+               {:params (superscription-coercions params)
+                :handler handler})
     nil))
+
+(rf/reg-event-fx
+  :request.superscription/delete
+  base-interceptors
+  (fn [_ [{rid :request/id sid :superscription/id :keys [handler]}]]
+    (ajax/DELETE (str "/api/requests/" rid
+                      "/superscriptions/" sid)
+                 {:handler handler})
+    nil))
+
+(rf/reg-event-fx
+  :request.entity.superscription/create
+  base-interceptors
+  (fn [_ [{rid :request/id eid :entity/id :keys [params handler]}]]
+    (ajax/POST (str "/api/requests/" rid
+                    "/entities/" eid "/superscriptions")
+               {:handler handler
+                :params (superscription-coercions params)
+                :response-format :json
+                :keywords? true})
+    nil))
+
+(rf/reg-event-fx
+  :request.entity.superscription/delete
+  base-interceptors
+  (fn [_ [{doc :doc path :path rid :request/id eid :entity/id 
+           sid :superscription/id :as params}]]
+    ;; Set the entity/superscription to nil
+    ;(swap! doc assoc-in path nil)
+    (when (and rid eid sid)
+      (ajax/DELETE (str "/api/requests/" rid 
+                        "/entities/" eid 
+                        "/superscriptions/" sid)
+                   {:error-handler #(prn %)}))
+    nil))
+
+
+(rf/reg-event-fx
+  :request.create-superscription/handler
+  base-interceptors
+  (fn [_ [{rid :request/id :keys [doc temp-doc path]}]]
+    (let [f (fn [ret]
+              ;; Assoc the vals to the main doc.
+              (rf/dispatch-sync
+                [:assoc-in! doc path 
+                  (merge @temp-doc ret)])
+              (rf/dispatch [:clear-form! temp-doc])
+              (rf/dispatch [:remove-modal]))
+          params {:request/id rid
+                  :params @temp-doc
+                  :handler f}]
+      ;; If there's a request/id we have to create a request-superscription
+      ;; relation.
+      (if rid
+        (rf/dispatch [:request.superscription/create params])
+        (rf/dispatch [:superscription/create params])))
+    nil))
+
+(rf/reg-event-fx
+  :request.edit-superscription/handler
+  base-interceptors
+  (fn [_ [{rid :request/id sid :superscription/id 
+           :keys [doc temp-doc path]
+           :as kwargs}]]
+    ;; If there's a request/id we have to delete the request-superscription
+    ;; relation before creating another one.
+    (when rid
+      (rf/dispatch [:request.superscription/delete
+                    {:request/id rid
+                     :superscription/id sid}]))
+    (rf/dispatch [:request.create-superscription/handler kwargs])
+    nil))
+
+(rf/reg-event-fx
+  :request.delete-superscription/handler
+  base-interceptors
+  (fn [_ [{rid :request/id sid :superscription/id
+           :keys [doc path] :as kwargs}]]
+    (let [f #(rf/dispatch [:assoc-in! doc path nil])]
+      ;; If there's a request/id we have to delete the request-superscription
+      ;; relation.
+      (if rid
+        (rf/dispatch [:request.superscription/delete
+                      {:request/id rid
+                       :superscription/id sid
+                       :handler f}])
+        (f))
+      nil)))
 
 ;; -------------------------
 ;; Subs

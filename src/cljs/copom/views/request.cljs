@@ -88,19 +88,29 @@
                        [sup/create-superscription-button
                         {:doc doc
                          :path superscription-path
-                         :request/id (:request/id @doc)}]])
+                         :request/id (:request/id @doc)
+                         :handler (fn [params]
+                                    (rf/dispatch
+                                      [:request.create-superscription/handler
+                                       params]))}]])  
                    (when sid
                      [:span
                        [sup/edit-superscription-button
                         {:doc doc
                          :path superscription-path
                          :request/id (:request/id @doc)
-                         :superscription/id sid}] 
+                         :superscription/id sid
+                         :handler (fn [params]
+                                    (rf/dispatch
+                                      [:request.edit-superscription/handler
+                                       params]))}] 
                        [delete-superscription-button
-                        {:doc doc
-                         :path superscription-path
-                         :request/id (:request/id @doc)
-                         :superscription/id sid}]])]
+                        {:handler #(rf/dispatch                         
+                                     [:request.delete-superscription/handler
+                                      {:doc doc
+                                       :path superscription-path
+                                       :request/id (:request/id @doc)
+                                       :superscription/id sid}])}]])]
                   (when sid
                     [address-form {:doc doc :path [:request/superscription]}])]}
           {:nav-title "Solicitante(s)"

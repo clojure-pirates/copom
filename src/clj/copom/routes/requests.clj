@@ -164,11 +164,15 @@
           {:request/id rid}))))))
 
 (defn create-request-entity [{:keys [path-params params]}]
-  (jdbc/with-db-transaction [conn db/*db*]
-   (binding [db/*db* conn]
-     (create-req-ent-relations! (:request/id path-params) [params])
-     (response/ok
-       {:result :ok}))))
+  (try
+    (jdbc/with-db-transaction [conn db/*db*]
+     (binding [db/*db* conn]
+       (create-req-ent-relations! (:request/id path-params) [params])
+       (response/ok
+         {:result :ok})))
+    (catch Exception e
+      (response/internal-server-error
+        {:error-msg (.getMessage e)}))))
 
 (defn create-request-entity-superscription [{:keys [path-params params]}]
   (jdbc/with-db-transaction [conn db/*db*]
@@ -199,7 +203,7 @@
   (response/ok
     (db/parser [{[:request/by-id (get-in req [:parameters :path :request/id])]
                  c/request-query}])))    
-#_(get-request {:parameters {:path {:request/id 1}}})
+#_(get-request {:parameters {:path {:request/id 2}}})  
 
 (defn get-complaints [{{query :query} :params}]
   (response/ok
