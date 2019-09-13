@@ -19,7 +19,7 @@
   (merge {:raw             false
           :format          :transit
           :response-format :transit
-          :reader          (transit/reader :json time/time-deserialization-handlers)
+          ;:reader          (transit/reader :json time/time-deserialization-handlers)
           :writer          (transit/writer :json time/time-serialization-handlers)}
          opts))
 

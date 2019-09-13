@@ -20,7 +20,11 @@
       (dissoc :request/date :request/time)
       (update :request/delicts #(->> % (filter (fn [[k v]] v)) (map (fn [[k v]] k))))
       (assoc :request/event-timestamp (event-timestamp (:request/date m) (:request/time m)))))
-  
+
+(defn save-entity-to-doc! [{:keys [doc path entity]}]
+   (if (get-in @doc path)
+     (rf/dispatch [:update-in! doc path #(conj % entity)])
+     (rf/dispatch [:assoc-in! doc path [entity]])))
 
 (rf/reg-event-db
   :requests/clear-form
@@ -147,9 +151,8 @@
   (fn [_ _]
     (ajax/GET "/api/requests"
               {:handler #(rf/dispatch [:rff/set [:requests/all] %])
-               :error-handler #(prn %)
-               :response-format :json
-               :keywords? true})
+               :error-handler #(prn %)})
+               
     nil))
 
 (rf/reg-event-fx
@@ -166,8 +169,9 @@
   :request.entity/create
   base-interceptors
   (fn [_ [{:keys [params handler error-handler] rid :request/id eid :entity/id}]]
-    (let [uri (cond-> ["/api" "requests" rid "entities"]
-                      eid  (conj eid)
+    (let [resolve-eid #(or eid (:entity/id params))
+          uri (cond-> ["/api" "requests" rid "entities"]
+                      (resolve-eid)  (conj (resolve-eid))
                       true (->> (clojure.string/join "/")))]
       (ajax/POST uri
                  {:params params
@@ -178,29 +182,87 @@
 (rf/reg-event-fx
   :request.entity.create/handler
   base-interceptors
-  (fn [_ [{rid :request/id :keys [doc temp-doc path]}]]
-    (let [save-to-doc! (fn [entity]
-                         (if (get-in @doc path)
-                           (rf/dispatch [:update-in! doc path #(conj % entity)])
-                           (rf/dispatch [:assoc-in! doc path [entity]])))
-          f (fn [eid-map]
-              (save-to-doc! (merge @temp-doc eid-map))
+  (fn [_ [{rid :request/id :keys [doc temp-doc path handler]}]]
+    (let [f (fn [eid-map]
+              ;; Create the entity-superscription relation
+              (when-let [sid (get-in @temp-doc [:entity/superscription 
+                                                :superscription/id])]
+                (rf/dispatch [:entity.superscription/create
+                              (assoc eid-map
+                                :superscription/id sid)]))
+              (save-entity-to-doc! 
+                {:doc doc :path path :entity (merge @temp-doc eid-map)})
               (rf/dispatch [:clear-form! temp-doc])
               (rf/dispatch [:remove-modal]))
           params {:request/id rid
                   :params @temp-doc
-                  :handler f}]
+                  :handler #(do (if handler 
+                                  (handler %) 
+                                  (f %)))}]
       (if rid
         (rf/dispatch [:request.entity/create params])
         (rf/dispatch [:entity/create params]))
       nil)))
 
 (rf/reg-event-fx
+  :request.entity.edit/handler
+  base-interceptors
+  (fn [_ [{rid :request/id old-eid :entity/id sid :superscription/id
+           :keys [doc temp-doc path] :as kwargs}]]
+    (when (and rid old-eid)
+      (rf/dispatch [:request.entity/delete
+                    {:request/id rid
+                     :entity/id old-eid}]))
+    (rf/dispatch [:request.entity.create/handler
+                  (dissoc kwargs :entity/id)])
+    nil))  
+
+(rf/reg-event-fx
+  :request.entity.select/handler
+  base-interceptors
+  (fn [_ [{rid :request/id :keys [doc path temp-doc] :as kwargs}]]
+    (let [resolve-entity-superscription
+          (fn [sups]
+            (->> sups
+                 (some #(and (= (:superscription/id %)
+                                (get-in @temp-doc [:entity/superscription])) 
+                             %))))
+          f #(do (save-entity-to-doc!
+                  {:doc doc 
+                   :path path
+                   :entity @temp-doc})
+                 (rf/dispatch [:clear-form! temp-doc])
+                 (rf/dispatch [:remove-modal]))]
+      ;; Update :entity/superscription to the selected superscription:
+      (->> (:entity/superscriptions @temp-doc)
+           resolve-entity-superscription
+           (swap! temp-doc assoc :entity/superscription))
+      (rf/dispatch [:request.entity.create/handler 
+                    (assoc kwargs :handler f)])
+      nil)))
+                     
+
+(rf/reg-event-fx
+  :request.entity.delete/handler
+  base-interceptors
+  (fn [_ [{rid :request/id eid :entity/id :keys [doc path]}]]
+    (let [f #(rf/dispatch [:entity/dissoc!
+                           {:doc doc :path path}])]
+      (if (and rid eid)
+        (rf/dispatch [:request.entity/delete
+                      {:request/id rid
+                       :entity/id eid
+                       :handler f}])
+        (f))
+      nil)))
+
+(rf/reg-event-fx
   :request.entity/delete
   base-interceptors
-  (fn [_ [{rid :request/id eid :entity/id}]]
+  (fn [_ [{rid :request/id eid :entity/id :keys [handler]}]]
     (ajax/DELETE (str "/api/requests/" rid
-                      "/entities/" eid))
+                      "/entities/" eid)
+                 {:handler handler})
     nil))
 
 (rf/reg-event-fx

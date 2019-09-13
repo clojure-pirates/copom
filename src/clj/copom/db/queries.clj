@@ -56,14 +56,14 @@
                q
                (merge {:identifiers ->dash} 
                       opts))))
-#_(query ["SELECT * FROM user"] (default-opts "user"))
+#_(query ["SELECT * FROM user"] (default-opts "appuser"))
 
 (defn insert! 
   "Takes a talbe name and a params map and makes a call to jdbc/insert!"
   [table params]
   (jdbc/insert! *db* (->underline-key table) (->underline-keys params)))
 
-#_(insert! :user {:user/first-name "Efraim" :user/last-name "Gonçalves"})
+#_(insert! :appuser {:appuser/first-name "Efraim" :appuser/last-name "Gonçalves"})
 
 (defn update!
   "Takes a table name and a params map and calls jdbc/update!"
@@ -71,13 +71,13 @@
    (update! table params nil))
   ([table params where] 
    (jdbc/update! *db* (->underline-key table) (->underline-keys params) where)))
-#_(update! :user {:last-name "Augusto Gonçalves"} ["first_name = ?" "Efraim"])
+#_(update! :appuser {:last-name "Augusto Gonçalves"} ["first_name = ?" "Efraim"])
 
 (defn delete! 
   "Takes a table name and a where clause and calls jdbc/delete!"
   [table where]
   (jdbc/delete! *db* (->underline-key table) where))
-#_(delete! :user ["first_name = ?" "Efraim"])
+#_(delete! :appuser ["first_name = ?" "Efraim"])
 
 (defn execute!
   "Takes a vector with an sql statement and, optionally, an opts map and calls

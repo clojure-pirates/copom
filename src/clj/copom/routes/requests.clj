@@ -169,7 +169,7 @@
      (binding [db/*db* conn]
        (create-req-ent-relations! (:request/id path-params) [params])
        (response/ok
-         {:result :ok})))
+         {:entity/id (:entity/id path-params)})))
     (catch Exception e
       (response/internal-server-error
         {:error-msg (.getMessage e)}))))
@@ -220,7 +220,7 @@
   (response/ok
     (db/parser [{[:request/by-id (get-in req [:parameters :path :request/id])]
                  c/request-query}])))    
-#_(get-request {:parameters {:path {:request/id 2}}})  
+#_(get-request {:parameters {:path {:request/id 1}}})  
 
 (defn get-complaints [{{query :query} :params}]
   (response/ok
@@ -265,5 +265,17 @@
 (comment
   (db/parser [{:entities/all
                (conj c/entity-columns
-                     {:entity/superscriptions c/superscription-query})}]))
-  
+                     {:entity/superscriptions c/superscription-query})}]
+    (def r
+      (first
+        (db/parser
+         [{:requests/all
+           c/request-query}])))
+    (->> (:request/summary r)
+         .getCharacterStream
+         line-seq
+         (clojure.string/join "\n")))
+
+  (->
+    (io/input-stream (java.io.ByteArrayInputStream. (.getBytes "text")))
+    slurp))

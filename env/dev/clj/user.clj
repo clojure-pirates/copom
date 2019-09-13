@@ -22,9 +22,7 @@
   "Starts application.
   You'll usually want to run this on startup."
   []
-  (mount/start-without #'copom.core/repl-server)
-  (jdbc/execute! *db* ["PRAGMA foreign_keys = ON"]))
-
+  (mount/start-without #'copom.core/repl-server))
 (defn stop 
   "Stops application."
   []

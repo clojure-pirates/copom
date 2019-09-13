@@ -2,7 +2,7 @@
   (:require
     [cognitect.transit :as transit]
     [luminus-transit.time :as time]
-    [muuntaja.core :as m]))
+    [muuntaja.core :as m]))  
 
 (def instance
   (m/create
@@ -13,3 +13,15 @@
         (update-in
           [:formats "application/transit+json" :encoder-opts]
           (partial merge time/time-serialization-handlers)))))
+                   
+
+(comment
+  (require '[copom.routes.requests :as r])
+  (def req
+    (-> (r/get-request {:parameters {:path {:request/id 1}}})
+        :body))
+  
+  (->> (select-keys req [:request/summary :request/created-at])
+       
+       (m/encode instance "application/transit+json")
+       slurp))

@@ -26,7 +26,7 @@
          first)))
   (create! [m]
    ;; return the id (int)
-   (-> (q/insert! (:table m) (:params m)) first first last))
+   (-> (q/insert! (:table m) (:params m)) first :id))
   (custom [m]
    (q/query (:query m) (q/default-opts (:table m))))
   (delete! [m]
@@ -50,12 +50,15 @@
    (q/update! (:table m) (:params m) (:where m))))  
 
 (comment
-  (all {:table "user"})
-  (by-id {:table "user" :user/id 1})
-  (create! {:table "user", :params {:user/first-name "efra"}})
-  (update! {:table "user", :params {:last-name "admin"}, :where ["id = ?" 2]})
-  (delete! {:table "user", :where ["first_name = ?" "efra"]})
-  (get-by {:table "user" :params {:user/first-name "user"
-                                  :user/last-name "test"}})
-  (get-or-create! {:table "user" :params {:user/first-name "user"
-                                          :user/last-name "test"}}))
+  (-> (q/insert! "entity" {:name "Efraim"})
+      first
+      :id)
+  (all {:table "appuser"})
+  (by-id {:table "appuser" :appuser/id 1})
+  (create! {:table "appuser", :params {:appuser/first-name "efra"}})
+  (update! {:table "appuser", :params {:last-name "admin"}, :where ["id = ?" 2]})
+  (delete! {:table "appuser", :where ["first_name = ?" "efra"]})
+  (get-by {:table "appuser" :params {:appuser/first-name "appuser"}
+                                  :appuser/last-name "test"})
+  (get-or-create! {:table "appuser" :params {:appuser/first-name "appuser"}
+                                          :appuser/last-name "test"}))

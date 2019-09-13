@@ -65,6 +65,7 @@
     nil))
 
 
+; Takes a doc and the path to the entity to be dissoc.
 (rf/reg-event-fx
   :entity/dissoc!
   base-interceptors
@@ -72,53 +73,9 @@
     (let [parent-path (pop path)
           v (get-in @doc parent-path)
           i (last path)
-          before (subvec v 0 i)
-          after (subvec v (inc i))]
-      (rf/dispatch [:assoc-in! doc parent-path (into before after)]))
-    nil))
-
-;; - When and rid eid, delete the request-entity
-;; - Create a new entity (and request-entity, when rid).
-;; - assoc the returned entity/id into the doc's entity path.
-(rf/reg-event-fx
-  :entity.edit-entity-modal/save
-  base-interceptors
-  (fn [_ [{rid :request/id eid :entity/id sid :superscription/id 
-           :keys [doc path temp-doc]}]]
-    (let [handle (fn [val]
-                   (rf/dispatch [:assoc-in! doc path val])
-                   (rf/dispatch [:remove-modal]))]
-      (cond (and rid eid)
-            (do (rf/dispatch
-                  [:request.entity/delete
-                   {:request/id rid
-                    :entity/id eid}])
-                (rf/dispatch
-                  [:entity/create
-                   {:params @temp-doc
-                    :handler
-                    (fn [ret]
-                      (when sid
-                        (rf/dispatch
-                          [:entity.superscription/create
-                           {:entity/id (:entity/id ret)
-                            :superscription/id sid
-                            :params @temp-doc}]))
-                      (rf/dispatch
-                        [:request.entity/create
-                         {:params (merge @temp-doc ret)
-                          :request/id rid
-                          :entity/id (:entity/id ret)
-                          :handler
-                          (fn [_]
-                            (handle (merge @temp-doc ret)))}]))}]))
-            :else
-            (rf/dispatch
-              [:entity/create
-               {:params @temp-doc
-                :handler
-                (fn [ret]
-                  (handle (merge @temp-doc ret)))}])))
+          before (take i v)
+          after (drop (inc i) v)]
+      (rf/dispatch [:assoc-in! doc parent-path (into (vec before) after)]))
     nil))
 
 ;; assoc the selected superscription (by its :superscription/id)

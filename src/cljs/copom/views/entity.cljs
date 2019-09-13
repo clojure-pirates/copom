@@ -19,7 +19,7 @@
 
 (declare entity-pick-modal)
    
-(defn query-items [{:keys [query] :as kwargs}]
+(defn query-items [{:keys [doc path query] :as kwargs}]
   (let [page (r/atom 0)]
     (fn []
       (when-let [items (-> @query :items comps/partition-links)]
@@ -30,10 +30,15 @@
            [:a.list-group-item.list-group-item-action
             ;; open modal with entity fields
             {:on-click #(rf/dispatch 
-                          [:modal (partial entity-pick-modal
-                                           (assoc kwargs :entity 
-                                             (assoc 
-                                               item :entity/role (:role kwargs))))])}
+                          [:modal 
+                           (partial entity-pick-modal
+                               (assoc kwargs :entity 
+                                 (assoc 
+                                   item :entity/role (:role kwargs))
+                                 :handler (fn [params]
+                                            (rf/dispatch
+                                              [:request.entity.select/handler
+                                               params]))))])}
             (:entity/name item)])]))))
 
 (declare create-entity-modal)
@@ -170,7 +175,8 @@
 
 ; TODO: request/entities
 (defn edit-entity-modal 
-  [{rid :request/id eid :entity/id sid :superscription/id :keys [doc path] :as kwargs}]
+  [{rid :request/id eid :entity/id sid :superscription/id 
+    :keys [doc path handler] :as kwargs}] 
   (let [temp-doc (r/atom (-> (get-in @doc path) (dissoc :entity/id)))
         kwargs2 {:doc temp-doc
                  :path []}]
@@ -182,18 +188,7 @@
                [entity-docs-form kwargs2]]
         :footer [:div
                  [:button.btn.btn-success 
-                  ;; on-click:
-                  ;; - When and rid eid, delete the request-entity
-                  ;; - Create a new entity (and request-entity, when rid).
-                  ;; - assoc the returned entity/id into the doc's entity path.
-                  {:on-click #(rf/dispatch
-                                [:entity.edit-entity-modal/save
-                                 {:request/id rid
-                                  :entity/id eid
-                                  :superscription/id sid
-                                  :doc doc
-                                  :temp-doc temp-doc
-                                  :path path}])}
+                  {:on-click #(handler (assoc kwargs :temp-doc temp-doc))}
                   "Salvar"]
                  [:button.btn.btn-danger 
                   {:on-click #(rf/dispatch [:remove-modal])}
@@ -210,21 +205,25 @@
        (when eid
          [:span
           [:button.btn.btn-warning 
-           {:on-click #(rf/dispatch [:modal (partial edit-entity-modal
-                                                     {:doc doc
-                                                      :path path
-                                                      :request/id rid
-                                                      :entity/id eid
-                                                      :superscription/id sid})])}
+           {:on-click 
+            #(rf/dispatch 
+               [:modal (partial edit-entity-modal
+                               {:doc doc
+                                :path path
+                                :request/id rid
+                                :entity/id eid
+                                :superscription/id sid
+                                :handler (fn [params]
+                                           (rf/dispatch
+                                             [:request.entity.edit/handler
+                                              params]))})])}
            "Alterar"]
-          ; TODO: request/entities
           [:button.btn.btn-danger 
-           {:on-click #(do (rf/dispatch [:entity/dissoc!
-                                         {:doc doc, :path path}])
-                           (when (and rid eid)
-                             (rf/dispatch [:request.entity/delete
-                                           {:request/id rid
-                                            :entity/id eid}])))}
+           {:on-click #(rf/dispatch [:request.entity.delete/handler
+                                     {:request/id rid
+                                      :entity/id eid
+                                      :doc doc 
+                                      :path path}])}
            "Excluir"]])]
        
       [entity-core-form kwargs]]
@@ -236,7 +235,12 @@
            {:on-click #(rf/dispatch 
                          [:modal (partial entity-pick-modal
                                    (-> (select-keys kwargs [:doc :path :role])
-                                       (assoc :entity (get-in @doc path))))])}
+                                       (assoc :entity (get-in @doc path)
+                                         :handler 
+                                         (fn [params]
+                                           (rf/dispatch
+                                             [:request.entity.select/handler
+                                              params])))))])}
                                                      
            "Selecionar"]
           [sup/create-superscription-button
@@ -274,7 +278,7 @@
      [entity-docs-form kwargs]]))
 
 ; TODO: request/entities
-(defn entity-pick-modal [{:keys [doc entity path role] :as kwargs}]
+(defn entity-pick-modal [{:keys [doc entity path role handler] :as kwargs}]
   (let [;; args for entity form, including a temporary doc.
         kwargs2 {:doc (r/atom entity) :path [] :role role :opts {:disabled? true}}]
     (fn []
@@ -302,13 +306,11 @@
                        (sort-by :superscription/created-at >)))]
         :footer [:div
                  [:button.btn.btn-success 
-                  ;; assoc the vals from the temp doc to the main doc
-                  {:on-click #(rf/dispatch 
-                                [:entity.entity-pick-modal/select
-                                 (merge kwargs
-                                       {:request/id (:request/id @doc)
-                                        :entity/id (:entity/id entity)
-                                        :temp-doc (:doc kwargs2)})])} 
+                  {:on-click #(handler 
+                                {:request/id (:request/id @doc)
+                                 :doc doc
+                                 :temp-doc (:doc kwargs2)
+                                 :path path})}
                   "Selecionar"]
                  [:button.btn.btn-danger 
                   {:on-click #(rf/dispatch [:remove-modal])}

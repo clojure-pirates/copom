@@ -13,7 +13,7 @@
   (let [params {:first-name "admin" 
                 :last-name "admin" 
                 :email "ciaguaranta@pm.mt.gov.br"}]
-    (c/create! {:table "user"
+    (c/create! {:table "appuser"
                 :params params})))
 
 (defn create-delicts! []
@@ -36,17 +36,28 @@
                {:request-role/role "victim"}]]
     (doseq [r roles]
       (c/create! {:table "request_role"
-                  :params r}))))  
+                  :params r}))))
+
+;;; create-requests! helpers
+
+(defn- get-delicts []
+  (->> (c/all {:table "delict"})
+       (take 2)
+       (map :delict/id)))
+
+(defn create-entity-returning! [params]
+  (-> {:params params}
+      ent/create-entity
+      :body
+      :entity/id))
 
 (defn create-requests! []
-  (let [delicts (->> (c/all {:table "delict"})
-                     (take 2)
-                     (map :delict/id))
+  (let [delicts (get-delicts)
         ;; minimum entity params, excluding the superscription.
         requester #:entity{:name "Efraim Augusto"
                            :phone "66999381813"}
         ; Create entity
-        requester-id (-> {:params requester} ent/create-entity :body :entity/id)
+        requester-id (create-entity-returning! requester)
         victim #:entity{:name "John Doe"
                         :phone "190"
                         :role "victim"
@@ -116,4 +127,8 @@
   (db/parser [{[:requests/all]
                [:request/id :request/event-timestamp]}])
   
-  (reset-db!))
+  (reset-db!)
+
+  (def requester
+    #:entity{:name "Efraim Augusto"
+             :phone "66999381813"}))

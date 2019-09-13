@@ -47,7 +47,6 @@
                         mount/start-with-args
                         :started)]
     (log/info component "started"))
-  (jdbc/execute! *db* ["PRAGMA foreign_keys = ON"])
   (.addShutdownHook (Runtime/getRuntime) (Thread. stop-app)))
 
 (defn -main [& args]

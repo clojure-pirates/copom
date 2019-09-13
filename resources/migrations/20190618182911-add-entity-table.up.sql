@@ -1,5 +1,5 @@
 CREATE TABLE entity (
- id INTEGER PRIMARY KEY,
+ id SERIAL PRIMARY KEY,
  name VARCHAR (200),
  doc_type VARCHAR (30),
  doc_issuer VARCHAR (30),
@@ -7,5 +7,5 @@ CREATE TABLE entity (
  father VARCHAR (200),
  mother VARCHAR (200),
  phone VARCHAR (30),
- created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
- updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+ created_at TIMESTAMP DEFAULT (now() AT TIME ZONE 'utc'),
+ updated_at TIMESTAMP DEFAULT (now() AT TIME ZONE 'utc'));

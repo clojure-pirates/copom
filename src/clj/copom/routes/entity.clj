@@ -18,6 +18,7 @@
   [{:entity/keys [name phone]}]
   (or name phone)) 
 
+
 (defn create-entity! [params]
   (when (min-entity-params? params)
     (let [;; Document fields will only be created if all the fields are filled.

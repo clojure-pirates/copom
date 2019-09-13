@@ -21,8 +21,8 @@
   (sqb-exp/multiple-compararison "IS NOT" params))
 
 (def schema
-  {:idents {:user/by-id :user/id
-            :users/all "user"
+  {:idents {:appuser/by-id :appuser/id
+            :appusers/all "appuser"
             :neighborhood/by-id :neighborhood/id
             :neighborhood/by-name :neighborhood/name
             :neighborhoods/all "neighborhood"
@@ -83,7 +83,7 @@
                        c/request-entity-columns c/request-delict-columns]
                       flatten (into #{}))
    
-   :cardinality {:user/by-id :one
+   :cardinality {:appuser/by-id :one
                  :neighborhood/by-id :one
                  :route/by-id :one
                  :superscription/by-id :one
@@ -98,7 +98,7 @@
                  :entity/role :one
                  :request/superscription :one}
    
-   :emitter emitter/sqlite-emitter})
+   :emitter emitter/postgres-emitter})
 
 (def compiled-schema
   (floor-plan/compile-floor-plan

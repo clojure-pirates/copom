@@ -86,7 +86,10 @@
         v))))
 
 (comment
-  (parser [{[:user/by-id 1] [:user/id :user/first-name]}])
+  (parser-print 
+    [{:appusers/all 
+      [:appuser/id]}])
+  (jdbc/query *db* ["SELECT * FROM user"])
   (->
-    (parser-print [{:users/all [:users/user-id]}])
+    (parser-print [{:appusers/all [:appusers/user-id]}])
     clojure.pprint/pprint))

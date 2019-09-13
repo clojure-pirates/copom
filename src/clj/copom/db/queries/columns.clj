@@ -1,7 +1,7 @@
 (ns copom.db.queries.columns)
 
 (def user-columns
-  [:user/id :user/first-name :user/last-name :user/email])
+  [:appuser/id :appuser/first-name :appuser/last-name :appuser/email])
 
 (def neighborhood-columns
   [:neighborhood/id :neighborhood/name])
