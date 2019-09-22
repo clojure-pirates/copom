@@ -4,7 +4,7 @@
     [copom.db :refer [app-db]]
     [copom.forms :as rff :refer [input select textarea]]
     [copom.views.components :as comps :refer 
-     [card card-nav checkbox-input form-group radio-input]]
+     [card card-nav checkbox-input form-group radio-input thead]]
     [copom.views.entity :refer [entity-form-wrapper]]
     [copom.views.superscription :as sup :refer 
      [address-form delete-superscription-button]]
@@ -20,15 +20,20 @@
     0))
 
 (defn list-requests [requests]
-  [:ul.list-group.list-group-flush
-    (for [r @requests]
-      ^{:key (:request/id r)}
-      [:a {:href (str "#/requisicoes/" (:request/id r) "/editar")}
-        [:li.list-group-item
-          (calculate-priority r) " | "
-          (:request/complaint r) " | "
-          (:request/created-at r)]])])
-
+  [:table.table.table-hover.table-striped.text-center
+   [thead ["ID" "NATUREZA" "DATA/HORA OCORRÊNCIA" "PRIORIDADE"]]
+   [:tbody
+     (for [r @requests]
+       ^{:key (:request/id r)}
+       [:tr {:style {"cursor" "pointer"}
+             :on-click #(rf/dispatch 
+                          [:navigate/by-path 
+                            (str "#/requisicoes/" (:request/id r) "/editar")])}
+        [:td (:request/id r)]
+        [:td (:request/complaint r)]
+        [:td (or (:request/event-timestamp r) "-")]
+        [:td (calculate-priority r)]])]])
+        
 ;; -------------------------
 ;; Create Request Page
 

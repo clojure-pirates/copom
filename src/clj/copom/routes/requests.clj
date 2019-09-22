@@ -128,7 +128,8 @@
               ;; we don't want :event-timestamp (date) to be cast to string
               :params (-> (select-keys params req-core-keys)
                           m->upper-case
-                          (assoc :event-timestamp (:event-timestamp params)))
+                          (assoc :request/event-timestamp 
+                            (:request/event-timestamp params)))
               :where ["id = ?" (:request/id params)]}))
 
 (defn delete-request-delict! [rid did]
