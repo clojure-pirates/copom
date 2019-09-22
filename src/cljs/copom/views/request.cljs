@@ -168,8 +168,7 @@
                   {:on-click #(rf/dispatch [:requests/create doc])}
                   "Criar"]
                  [:a.btn.btn-danger
-                  {:href (router/href :requests)
-                   :on-click #(rf/dispatch [:requests/clear-form doc])} 
+                  {:href (router/href :requests)}
                   "Cancelar"]]]
        :body [request-form doc [:requests :new]]}]]))
 
@@ -184,7 +183,8 @@
     (fn []      
       (when (seq @doc)
         [:section.section>div.container>div.content
-         [:a {:href (str "#/requisicoes/" (:request/id @doc) "/editar")} "Request"]
+         [:a {:href (str "#/requisicoes/" (:request/id @doc) "/editar")} 
+          "Request"]
          [card
           {:title [:h4 "Requisição #" (:request/id @doc)
                    (when @errors [:span.alert.alert-danger @errors])
@@ -194,8 +194,7 @@
                       {:on-click #(rf/dispatch [:requests/update doc])}
                       "Salvar"]
                      [:a.btn.btn-danger
-                      {:href (router/href :requests)
-                       :on-click #(rf/dispatch [:requests/clear-form doc])} 
+                      {:href (router/href :requests)}
                       "Cancelar"]]]
            :body [request-form doc [:requests/edit]]}]]))))
 

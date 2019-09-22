@@ -125,7 +125,10 @@
 
 (defn update-request! [params]
   (q/update! {:table "request"
-              :params (m->upper-case (select-keys params req-core-keys))
+              ;; we don't want :event-timestamp (date) to be cast to string
+              :params (-> (select-keys params req-core-keys)
+                          m->upper-case
+                          (assoc :event-timestamp (:event-timestamp params)))
               :where ["id = ?" (:request/id params)]}))
 
 (defn delete-request-delict! [rid did]
@@ -163,50 +166,46 @@
          (response/ok
           {:request/id rid}))))))
 
-(defn create-request-entity [{:keys [path-params params]}]
-  (try
-    (jdbc/with-db-transaction [conn db/*db*]
-     (binding [db/*db* conn]
-       (create-req-ent-relations! (:request/id path-params) [params])
-       (response/ok
-         {:entity/id (:entity/id path-params)})))
-    (catch Exception e
-      (response/internal-server-error
-        {:error-msg (.getMessage e)}))))
+(defn create-request-entity [{:keys [parameters params]}]
+  (jdbc/with-db-transaction [conn db/*db*]
+   (binding [db/*db* conn]
+     (create-req-ent-relations! 
+       (get-in parameters [:path :request/id]) [params])
+     (response/ok
+       {:entity/id (get-in parameters [:path :entity/id])}))))
 
 ;; Same as `create-request-entity`, but creates an entity first, returning
 ;; its id.
-(defn create-request-entity* [{:keys [path-params params]}]
-  (try
-    (jdbc/with-db-transaction [conn db/*db*]
-     (binding [db/*db* conn]
-       (let [eid (create-entity! params)]
-         (create-req-ent-relations! (:request/id path-params) 
-                                    [(assoc params :entity/id eid)])
-         (response/ok
-           {:entity/id eid}))))
-    (catch Exception e
-      (response/internal-server-error
-        {:error-msg (.getMessage e)}))))
-
-
-(defn create-request-entity-superscription [{:keys [path-params params]}]
+(defn create-request-entity* [{:keys [parameters params]}]
   (jdbc/with-db-transaction [conn db/*db*]
    (binding [db/*db* conn]
-     (let [reid (get-reid (:request/id path-params) (:entity/id path-params))
+     (let [eid (create-entity! params)]
+       (create-req-ent-relations! (get-in parameters [:path :request/id])
+                                  [(assoc params :entity/id eid)])
+       (response/ok
+         {:entity/id eid})))))
+
+
+(defn create-request-entity-superscription [{:keys [parameters params]}]
+  (jdbc/with-db-transaction [conn db/*db*]
+   (binding [db/*db* conn]
+     (let [rid (get-in parameters [:path :request/id])
+           eid (get-in parameters [:path :entity/id])
+           reid (get-reid rid eid)
            sid (create-sup! params)]
-       (create-ent-sup! (:entity/id path-params) sid)
+       (create-ent-sup! eid sid)
        (create-req-ent-sup! reid sid)
        (response/ok 
          {:superscription/id sid})))))
 
 
-(defn create-request-superscription [{:keys [path-params params]}]
+(defn create-request-superscription [{:keys [parameters params]}]
   (jdbc/with-db-transaction [conn db/*db*]
    (binding [db/*db* conn]
      (response/ok
        {:superscription/id
-        (create-request-superscription! (:request/id path-params) params)}))))
+        (create-request-superscription! 
+          (get-in parameters [:path :request/id]) params)}))))
        
 ; READ
 (defn get-requests [req]
@@ -244,19 +243,19 @@
        {:result :ok}))))
 
 ; DELETE
-(defn delete-request-entity [{:keys [path-params]}]
-  (delete-request-entity! path-params)
+(defn delete-request-entity [{:keys [parameters]}]
+  (delete-request-entity! (:path parameters))
   (response/ok
     {:result :ok}))
 
-(defn delete-request-superscription [{:keys [path-params]}]
-  (delete-req-sup! path-params)
+(defn delete-request-superscription [{:keys [parameters]}]
+  (delete-req-sup! (:path parameters))
   (response/ok {:result :ok}))
 
 
-(defn delete-request-entity-superscription [{:keys [path-params]}]
-  (let [{rid :request/id, eid :entity/id, sid :superscription/id} path-params
-        reid (get-reid rid eid)
+(defn delete-request-entity-superscription 
+  [{{{rid :request/id eid :entity/id sid :superscription/id} :path} :parameters}]
+  (let [reid (get-reid rid eid)
         where ["request_entity_id = ? AND superscription_id = ?" reid sid]]
     ; delete request_entity_superscription, reid, sid
     (q/delete! {:table "request_entity_superscription" :where where}) 

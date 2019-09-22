@@ -1,5 +1,7 @@
 (ns copom.router
   (:require
+    [copom.db :refer [app-db]]
+    [reagent.core :as r]
     [re-frame.core :as rf]
     [reagent.session :as session]
     [reitit.core :as reitit]))
@@ -14,8 +16,10 @@
   (rf/dispatch [:requests/load-delicts])
   (rf/dispatch [:requests/load-request (js/parseInt (:id params))]))
 
-(defn create-request-controller []
-  (rf/dispatch [:requests/load-delicts]))
+(defn create-request-controller [] 
+  (let [doc (r/cursor app-db [:request])]
+    (rf/dispatch [:requests/clear-form doc])
+    (rf/dispatch [:requests/load-delicts])))
 
 (def router
   (reitit/router

@@ -68,4 +68,32 @@
   (start)
   (create-migration "add-entity-superscription-table")
   (reset-db)
-  (migrate))
+  (migrate)
+
+  (defn move-files []
+    (def d1
+      (clojure.java.io/file
+        (str "/Users/efraimmgon/Documents/13 CIPM/PJM/Sind/"
+             "Port. 023.SIND-ACUS.15º CR.2018/Ofícios")))
+
+    (def d2
+      (clojure.java.io/file "/Users/efraimmgon/projects/copom"))
+
+    (defn domap [f coll]
+      (doseq [x coll]
+        (f x)))
+
+    (defn rename-to [file]
+      (let [n (.getName file)
+            newn (clojure.java.io/file d1 n)
+            msg (str n " -> " newn)]
+        (if (.renameTo file newn)
+          (println msg)
+          (println "Could not rename:" msg))
+        (prn)))
+          
+
+    (->> (file-seq d2)
+         (filter #(re-find #"^Of\. " (.getName %)))
+         ;(map #(.getName %))
+         (domap rename-to))))

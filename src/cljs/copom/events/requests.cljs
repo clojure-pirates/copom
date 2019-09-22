@@ -12,8 +12,9 @@
   (conj base-interceptors (rf/path :requests)))
 
 (defn event-timestamp [date time]
-  (str (-> date (.split "T") first) " "
-       time))
+  (js/Date.
+    (str (-> date (.split "T") first) "T"
+         time ".000Z")))
 
 (defn request-coercions [m]
   (-> m
@@ -94,9 +95,7 @@
 (defn create-request! [doc]
   (ajax/POST "/api/requests"
              {:params (request-coercions @doc)
-              :handler #(do 
-                            (rf/dispatch [:navigate/by-path "/#/"])
-                            (rf/dispatch [:requests/clear-form doc]))})
+              :handler #(rf/dispatch [:navigate/by-path "/#/"])})
   nil)
 
 (rf/reg-event-fx
@@ -151,7 +150,9 @@
   (fn [_ _]
     (ajax/GET "/api/requests"
               {:handler #(rf/dispatch [:rff/set [:requests/all] %])
-               :error-handler #(prn %)})
+               :error-handler #(prn %)
+               :response-format :json
+               :keywords? true})
                
     nil))
 

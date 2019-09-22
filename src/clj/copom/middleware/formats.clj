@@ -24,4 +24,14 @@
   (->> (select-keys req [:request/summary :request/created-at])
        
        (m/encode instance "application/transit+json")
-       slurp))
+       slurp)
+
+  (:request/created-at req)
+
+  (require '[re-frame.core :as rf])
+  (def reqs (rf/subscribe [:requests/all]))
+  
+  (def d
+    (-> @reqs
+        first
+        :request/created-at)))

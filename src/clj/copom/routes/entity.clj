@@ -1,5 +1,6 @@
 (ns copom.routes.entity
   (:require
+    [clojure.string :refer [upper-case]]
     [clojure.java.jdbc :as jdbc]
     [copom.db.core :as db]
     [copom.db.queries.columns :as c]
@@ -49,8 +50,10 @@
     (db/parser
       [{(list :entities/all
               {:filters (when query 
-                          [:like :entity/name (str "%" query "%")])})
+                          [:like :entity/name (str "%" (upper-case query) "%")])})
         cols}])))
+(def query "E")
+
          
 (defn get-phones [{{query :query} :params}]
   (response/ok
@@ -64,16 +67,17 @@
   (response/ok
     {:entity/id (create-entity! params)}))
 
-(defn create-entity-superscription [{:keys [params path-params]}]
+(defn create-entity-superscription
+  [{params :params
+    {{eid :entity/id sid :superscription/id} :path} :parameters}]
   (jdbc/with-db-transaction [conn db/*db*]
    (binding [db/*db* conn]
-     (let [sid (or (:superscription/id path-params) (create-sup! params))]
-       (create-ent-sup! (:entity/id path-params) sid)
+     (let [sid (or sid (create-sup! params))]
+       (create-ent-sup! eid sid)
        (response/ok 
          {:superscription/id sid})))))
 
 (defn delete-entity-superscription 
-  [{:keys [path-params]}]
-  (let [{eid :entity/id sid :superscription/id} path-params]
-    (q/delete! {:table "entity_superscription"
-                :where ["entity_id = ? AND superscription_id = ?" eid sid]})))
+  [{{{eid :entity/id sid :superscription/id} :path} :parameters}]
+  (q/delete! {:table "entity_superscription"
+              :where ["entity_id = ? AND superscription_id = ?" eid sid]}))

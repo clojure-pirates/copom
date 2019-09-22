@@ -2,7 +2,7 @@
   (:require
     [clojure.string :as string]
     [copom.forms :as rff :refer [input select]]
-    [copom.views.components :as comps :refer [form-group]]
+    [copom.views.components :as comps :refer [form-group card]]
     [copom.views.superscription :as sup :refer 
      [address-form]]
     [reagent.core :as r]
@@ -340,13 +340,13 @@
                (str (role->translation role) "s"))]
         [entity-form-search kwargs]
         [:hr]
+        ;; NOTE: `path` leads to a coll of entities
         (when-let [eid (-> (get-in @doc path) first :entity/id)]
           (->> (get-in @doc path)
-              (map-indexed
-                (fn [i e]
-                  ^{:key (:entity/id e)}
-                  [entity-form (assoc kwargs 
-                                 :opts {:disabled? true}
-                                 :path (conj path i))]))
-              (interpose [:hr])))])))
-          
+               (map-indexed
+                 (fn [i e]
+                   ^{:key (:entity/id e)}
+                   [card {:body 
+                          [entity-form (assoc kwargs
+                                         :opts {:disabled? true}
+                                         :path (conj path i))]}]))))])))          

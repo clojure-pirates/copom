@@ -38,9 +38,11 @@
     ["/entities/names" {:get ent/get-names}]
     ["/entities/phones" {:get ent/get-phones}]
     ["/entities/{entity/id}/superscriptions"
-     {:post ent/create-entity-superscription}]
+     {:parameters {:path (s/keys :req [:entity/id])}
+      :post ent/create-entity-superscription}]
     ["/entities/{entity/id}/superscriptions/{superscription/id}"
-     {:post ent/create-entity-superscription
+     {:parameters {:path (s/keys :req [:entity/id :superscription/id])}
+      :post ent/create-entity-superscription
       :delete ent/delete-entity-superscription}]
     ["/neighborhoods" {:get sup/get-neighborhoods
                        :post sup/create-neighborhood}]
@@ -54,18 +56,24 @@
                                :put requests/update-request}]
     ["/requests/complaints/all" {:get requests/get-complaints}]
     ["/requests/{request/id}/superscriptions"
-     {:post requests/create-request-superscription}]
+     {:parameters {:path (s/keys :req [:request/id])}
+      :post requests/create-request-superscription}]
     ["/requests/{request/id}/superscriptions/{superscription/id}"
-     {:delete requests/delete-request-superscription}]
+     {:parameters {:path (s/keys :req [:request/id :superscription/id])}
+      :delete requests/delete-request-superscription}]
     ["/requests/{request/id}/entities"
-     {:post requests/create-request-entity*}]
+     {:parameters {:path (s/keys :req [:request/id])}
+      :post requests/create-request-entity*}]
     ["/requests/{request/id}/entities/{entity/id}"
-     {:post requests/create-request-entity
+     {:parameters {:path (s/keys :req [:request/id :entity/id])}
+      :post requests/create-request-entity
       :delete requests/delete-request-entity}]
     ["/requests/{request/id}/entities/{entity/id}/superscriptions/{superscription/id}"
-     {:delete requests/delete-request-entity-superscription}]
+     {:parameters {:path (s/keys :req [:request/id :entity/id :superscription/id])}
+      :delete requests/delete-request-entity-superscription}]
     ["/requests/{request/id}/entities/{entity/id}/superscriptions"
-     {:post requests/create-request-entity-superscription}]
+     {:parameters {:path (s/keys :req [:request/id :entity/id])}
+      :post requests/create-request-entity-superscription}]
     ["/superscriptions"
      {:post sup/create-superscription}]]])
     
