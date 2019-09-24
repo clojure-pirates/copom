@@ -11,3 +11,10 @@
       .toTimeString
       (.split " ")
       first))
+
+(defn request-status [r]
+  (let [m {"PENDING"    "PENDENTE"
+           "DONE"       "FINALIZADO"
+           "DISPATCHED" "DESPACHADO"}]
+    (get m (:request/status r))))
+           

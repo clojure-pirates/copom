@@ -1,5 +1,7 @@
 (ns copom.forms
   (:require
+   [cljs-time.core :as t]
+   [cljs-time.format :as tf]
    [cljs.reader :as reader]
    [clojure.string :as string]
    [reagent.core :as r]
@@ -187,9 +189,9 @@
 
 (defmethod input :date
   [attrs]
-  (let [{:keys [name default-value doc save-fn value-fn]
-         :or {save-fn to-iso-string
-              value-fn to-date-format}} attrs
+  (let [{:keys [name default-value doc save-fn value-fn format]} attrs
+        value-fn (or value-fn identity)
+        save-fn (or save-fn identity)
         edited-attrs
         (merge {:on-change (on-change-set! doc name (comp save-fn target-value))
                 ;; If there's no browser support,
@@ -267,5 +269,3 @@
                                       "getDate")]
                    (rf/dispatch [:rff/set (:name attrs)
                                  (.getTime d)])))))}))
-               
-; file

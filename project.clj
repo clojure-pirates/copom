@@ -9,6 +9,7 @@
                  [clojure.java-time "0.3.2"]
                  [org.postgresql/postgresql "42.2.6"]
                  [com.cognitect/transit-clj "0.8.313"]
+                 [com.andrewmcveigh/cljs-time "0.5.2"]
                  [conman "0.8.3"]
                  [cprop "0.1.13"]
                  [day8.re-frame/http-fx "0.1.6"]

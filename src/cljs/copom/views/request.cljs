@@ -9,31 +9,35 @@
     [copom.views.superscription :as sup :refer 
      [address-form delete-superscription-button]]
     [copom.router :as router]
-    [copom.utils :refer [to-iso-date to-time-string]]
+    [copom.utils :refer [to-iso-date to-time-string request-status]]
     [reagent.core :as r]
     [re-frame.core :as rf]))
     
 
-(defn calculate-priority [r]
-  (if-let [delicts (seq (:request/delicts r))]
-    (->> delicts (map :delict/weight) (reduce +))
-    0))
+(defn display-datetime [s]
+  (when s
+    (string/join " "
+      (string/split s #"T"))))
 
 (defn list-requests [requests]
-  [:table.table.table-hover.table-striped.text-center
-   [thead ["ID" "NATUREZA" "DATA/HORA OCORRÊNCIA" "PRIORIDADE"]]
-   [:tbody
-     (for [r @requests]
-       ^{:key (:request/id r)}
-       [:tr {:style {"cursor" "pointer"}
-             :on-click #(rf/dispatch 
-                          [:navigate/by-path 
-                            (str "#/requisicoes/" (:request/id r) "/editar")])}
-        [:td (:request/id r)]
-        [:td (:request/complaint r)]
-        [:td (or (:request/event-timestamp r) "-")]
-        [:td (calculate-priority r)]])]])
-        
+  (if-not (seq @requests)
+    [:h6 "Não há requisições."]
+    [:table.table.table-hover.table-striped.text-center
+     [thead ["ID" "NATUREZA" "DATA/HORA OCORRÊNCIA" "STATUS" "PRIORIDADE"]]
+     [:tbody
+       (for [r @requests]
+         ^{:key (:request/id r)}
+         [:tr {:style {"cursor" "pointer"}
+               :on-click #(rf/dispatch 
+                            [:navigate/by-path 
+                              (str "#/requisicoes/" (:request/id r) "/editar")])}
+          [:td (:request/id r)]
+          [:td (:request/complaint r)]
+          [:td (or (display-datetime (:request/event-timestamp r)) 
+                   "-")]
+          [:td (request-status r)]
+          [:td (:request/priority r)]])]]))
+          
 ;; -------------------------
 ;; Create Request Page
 
@@ -77,14 +81,18 @@
                             :class "form-control"
                             :doc doc
                             :name :request/date
-                            :default-value (to-iso-date (js/Date.))}]]
+                            :default-value 
+                            (when-not (:request/id @doc)
+                              (to-iso-date (js/Date.)))}]]
                    [form-group
                     "Hora"
                     [input {:type :time
                             :class "form-control"
                             :doc doc
                             :name :request/time
-                            :default-value (to-time-string (js/Date.))}]]]}
+                            :default-value 
+                            (when-not (:request/id @doc)
+                              (to-time-string (js/Date.)))}]]]}
           {:nav-title "Endereço do fato"
            :body [:fieldset
                   [:legend "Endereço" " "
@@ -147,18 +155,18 @@
                      [radio-input {:name :request/status
                                    :class "form-check-input"
                                    :doc doc
-                                   :value "pending"
+                                   :value "PENDING"
                                    :label "Em aberto"
-                                   :checked? (when (-> @doc :request/status nil?) true)}]
+                                   :checked? (when-not (:request/status @doc) true)}]
                      [radio-input {:name :request/status
                                    :class "form-check-input"
                                    :doc doc
-                                   :value "dispatched"
+                                   :value "DISPATCHED"
                                    :label "Despachado"}]
                      [radio-input {:name :request/status
                                    :class "form-check-input"
                                    :doc doc
-                                   :value "done"
+                                   :value "DONE"
                                    :label "Finalizado"}]]]]}]]))))      
 
 (defn create-request-page []
@@ -205,8 +213,26 @@
 
 ; TODO: pagination (show only n requests per page)
 (defn requests-page []
-  (r/with-let [requests (rf/subscribe [:requests/all])]
+  (r/with-let [requests (rf/subscribe [:requests/all])
+               pending-reqs (rf/subscribe [:requests/pending])
+               dispatched-reqs (rf/subscribe [:requests/dispatched])
+               done-reqs (rf/subscribe [:requests/done])] 
     [:section.section>div.container>div.content
+     [card
+      {:title [:h4 "Requisições pendentes"
+               [:span.float-right 
+                [create-request-button]]]
+       :body [list-requests pending-reqs]}]
+     [card
+      {:title [:h4 "Requisições despachadas"
+               [:span.float-right 
+                [create-request-button]]]
+       :body [list-requests dispatched-reqs]}]
+     [card
+      {:title [:h4 "Requisições finalizadas"
+               [:span.float-right 
+                [create-request-button]]]
+       :body [list-requests done-reqs]}]
      [card
       {:title [:h4 "Requisições"
                [:span.float-right 
@@ -228,8 +254,8 @@
               [list-requests requests]
               [:h6 "Não há requisições"])}]))
 
-(defn pending-requests []
-  (r/with-let [requests (rf/subscribe [:requests/pending])]
+(defn not-done-requests []
+  (r/with-let [requests (rf/subscribe [:requests/not-done])]
     [card
      {:title [:h4 "Requisições em aberto"]
       :body (if (seq @requests)
@@ -241,13 +267,18 @@
    {:href "#/requisicoes"}
    "Gerenciar requisições"])
 
+(defn buttons []
+  [:div
+   [manage-requests-button] " "
+   [create-request-button]])
+
 (defn dashboard []
   [:section.section>div.container>div.content
    [:div.row>div.col-md-12
+    [buttons]]
+   [:div.row>div.col-md-12
      [latest-requests]]
    [:div.row>div.col-md-12
-     [pending-requests]]
+     [not-done-requests]]
    [:div.row>div.col-md-12
-     ; TODO: search requests
-     [manage-requests-button] " "
-     [create-request-button]]])
+    [buttons]]])

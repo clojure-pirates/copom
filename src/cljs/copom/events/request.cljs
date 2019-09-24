@@ -1,6 +1,8 @@
 (ns copom.events.request
   (:require
     [ajax.core :as ajax]
+    [cljs-time.core :as t]
+    [cljs-time.format :as tf]
     [copom.db :refer [app-db]]
     [copom.events.utils :refer [base-interceptors superscription-coercions]]
     [re-frame.core :as rf]))
@@ -8,19 +10,32 @@
 ;; -------------------------
 ;; Helpers
 
+(comment
+  (in-ns 'copom.events.request)
+  (load-file "src/cljs/copom/events/requests.cljs"))
+  
+
 (def requests-interceptos 
   (conj base-interceptors (rf/path :requests)))
 
 (defn event-timestamp [date time]
-  (js/Date.
-    (str (-> date (.split "T") first) "T"
-         time ".000Z")))
+  (str date "T" time
+       (when (= 2 (count (clojure.string/split time #":")))
+         ":00")))
+
+(defn update-request-event-timestamp [r]
+  (let [d (:request/date r)
+        t (:request/time r)]
+    (if (and d t)
+      (assoc r :request/event-timestamp 
+        (event-timestamp d t))
+      r)))
 
 (defn request-coercions [m]
   (-> m
-      (dissoc :request/date :request/time)
       (update :request/delicts #(->> % (filter (fn [[k v]] v)) (map (fn [[k v]] k))))
-      (assoc :request/event-timestamp (event-timestamp (:request/date m) (:request/time m)))))
+      update-request-event-timestamp
+      (dissoc :request/date :request/time)))
 
 (defn save-entity-to-doc! [{:keys [doc path entity]}]
    (if (get-in @doc path)
@@ -74,13 +89,12 @@
                   (assoc m (:delict/id d) true))
                 {} (:request/delicts req))
         [d t] (when-let [s (:request/event-timestamp req)]
-                (clojure.string/split s #" "))
+                (clojure.string/split s #"T"))
         req-datetime #:request{:date d :time t}]
     (-> req
         (assoc :request/delicts req-delicts)
         (merge req-datetime
                req-entities))))
-           
 
 ;; -------------------------
 ;; Handlers
@@ -424,21 +438,67 @@
   :delicts/all
   (fn [db] (:delicts/all db)))
 
+(defn calculate-priority [r]
+  (if-let [delicts (seq (:request/delicts r))]
+    (->> delicts (map :delict/weight) (reduce +))
+    0))
+
+(defn with-priority [r]
+  (assoc r :request/priority (calculate-priority r)))
+
 (rf/reg-sub
   :requests/all
-  (fn [db _] (:requests/all db)))
+  (fn [db _] 
+    (->> (:requests/all db)
+         (map with-priority))))
+
+(rf/reg-sub
+  :requests.all/ordered-by-priority
+  :<- [:requests/all]
+  (fn [reqs _]
+    (sort-by :request/priority > reqs)))
+
+(defn str->unix-timestamp [s]
+  (when s
+    (.getTime
+      (js/Date. s))))
 
 (rf/reg-sub
   :requests/latest
   :<- [:requests/all]
   (fn [reqs _]
-    (take 10 reqs)))
+    (->> reqs
+         (map #(assoc % :request/unix-timestamp 
+                 (str->unix-timestamp (:request/created-at %))))
+         (sort-by :request/unix-timestamp >)
+         (take 10))))
+
+(def reqs (rf/subscribe [:requests/latest]))
+
+(rf/reg-sub
+  :requests/not-done
+  :<- [:requests.all/ordered-by-priority]
+  (fn [reqs _]
+    (->> reqs
+         (filter #(not= (:request/status %) "DONE")))))
 
 (rf/reg-sub
   :requests/pending
+  :<- [:requests.all/ordered-by-priority]
+  (fn [reqs _]
+    (filter #(= (:request/status %) "PENDING") reqs)))
+
+(rf/reg-sub
+  :requests/dispatched
   :<- [:requests/all]
   (fn [reqs _]
-    (filter #(not= (:status %) "done") reqs)))
+    (filter #(= (:request/status %) "DISPATCHED") reqs)))
+
+(rf/reg-sub
+  :requests/done
+  :<- [:requests/all]
+  (fn [reqs _]
+    (filter #(= (:request/status %) "DONE") reqs)))
 
 (rf/reg-sub
   :requests/request

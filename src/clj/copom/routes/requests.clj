@@ -8,7 +8,7 @@
     [copom.db.queries.columns :as c]
     [copom.routes.entity :refer [create-ent-sup! create-entity!]]
     [copom.routes.superscription :refer [create-sup!]]
-    [copom.utils :refer [m->upper-case]]
+    [copom.utils :refer [m->upper-case str->java-date]]
     [ring.util.http-response :as response]))
  
 (defn get-reid 
@@ -77,7 +77,11 @@
           request-params (-> params
                              (select-keys request-keys)
                              (m->upper-case [:request/complaint :request/summary
-                                             :request/measures]))
+                                             :request/measures])
+                             (assoc :request/event-timestamp 
+                              (str->java-date 
+                                :date-hour-minute-second
+                                (:request/event-timestamp params))))
           request-id (q/create! {:table "request" :params request-params})]
       request-id)
     (println "Required fields missing for REQUESTS!"))) 
@@ -129,7 +133,9 @@
               :params (-> (select-keys params req-core-keys)
                           m->upper-case
                           (assoc :request/event-timestamp 
-                            (:request/event-timestamp params)))
+                            (str->java-date 
+                              :date-hour-minute-second
+                              (:request/event-timestamp params))))
               :where ["id = ?" (:request/id params)]}))
 
 (defn delete-request-delict! [rid did]
@@ -212,7 +218,8 @@
 (defn get-requests [req]
   (response/ok
     (db/parser
-     [{:requests/all
+     [{(list :requests/all
+             {:order-by [:request/event-timestamp :asc]})
        c/request-query}])))
 #_(get-requests nil)
 
@@ -275,6 +282,9 @@
          .getCharacterStream
          line-seq
          (clojure.string/join "\n")))
+
+  (clojure.repl/doc sort-by)
+  (sort-by :a > [{:a 1} {:a 2} {:a 9}])
 
   (->
     (io/input-stream (java.io.ByteArrayInputStream. (.getBytes "text")))

@@ -18,7 +18,7 @@
 
 (defn create-request-controller [] 
   (let [doc (r/cursor app-db [:request])]
-    (rf/dispatch [:requests/clear-form doc])
+    (rf/dispatch-sync [:requests/clear-form doc])
     (rf/dispatch [:requests/load-delicts])))
 
 (def router
