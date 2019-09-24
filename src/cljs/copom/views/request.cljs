@@ -176,7 +176,7 @@
      [card
       {:title [:h4 "Nova requisição"
                (when @errors [:span.alert.alert-danger @errors])
-               [:div.btn-group.float-right
+               [:div.btn-group
                  [:button.btn.btn-success
                   {:on-click #(rf/dispatch [:requests/create doc])}
                   "Criar"]
