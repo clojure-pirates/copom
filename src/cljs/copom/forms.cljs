@@ -189,7 +189,7 @@
 
 (defmethod input :date
   [attrs]
-  (let [{:keys [name default-value doc save-fn value-fn format]} attrs
+  (let [{:keys [name default-value doc save-fn value-fn]} attrs
         value-fn (or value-fn identity)
         save-fn (or save-fn identity)
         edited-attrs
@@ -202,6 +202,34 @@
                 ;; format is submitted.
                 :pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}"}
                (clean-attrs attrs))]
+    (fn []
+      (when (and (nil? (get-stored-val @doc name))
+                 default-value)
+        (set-val! doc name (save-fn default-value)))
+      [:input (assoc edited-attrs
+                :value (value-fn (get-stored-val @doc name)))])))
+
+(defn time-save-fn [val]
+  (let [val* (string/split val #":")]
+    (cond
+      (= 2 (count val*))
+      (str val ":00")
+      
+      (= 3 (count val*))
+      val
+      
+      :else
+      (string/join ":" (take 3 val*)))))
+
+(defmethod input :time
+  [attrs]
+  (let [{:keys [name default-value doc save-fn value-fn]} attrs
+        value-fn (or value-fn identity)
+        save-fn (or save-fn time-save-fn)
+        edited-attrs
+        (merge {:on-change (on-change-set! doc name (comp save-fn target-value))
+                 :placeholder "hh:mm"
+                (clean-attrs attrs)})]
     (fn []
       (when (and (nil? (get-stored-val @doc name))
                  default-value)
